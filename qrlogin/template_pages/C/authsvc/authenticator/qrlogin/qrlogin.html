@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>QR Login</title>
+
+	<script type="text/javascript">
+		var locationHostPort = location.hostname+(location.port ? ':'+location.port: ''); 
+		var baseURL = location.protocol+'//'+locationHostPort;
+		var jct = '/mga';
+		var formAction = jct + '@ACTION@';
+		var apiFormAction = formAction.replace("/authsvc?", "/apiauthsvc?");
+		var dsi = "@DSI@";
+		
+	</script>
+	<script src="/sps/static/jquery.min.js"></script>
+
+    <script type="text/javascript">
+    function onLoadPage() {
+    	/*
+    	* Generate the qrcode
+    	*/
+    	// pre-isam9040 we used an external qr code servlet
+		//var qrcode = { "lsi":"@LSI@", "options":"ignoreSslCerts=true", "details_url":"https://9.235.64.129:444/mga/sps/mmfa/user/mgmt/details", "version":1 };
+    	//var qrgenservlet = 'https://qrgen.au-syd.mybluemix.net/QRCode/qrcode?width=350&height=350&url=' + escape(JSON.stringify(qrcode));
+    	var qrgenservlet = baseURL + '/mga/sps/mmfa/user/mgmt/qr_code?lsi=@LSI@';
+    	qrdiv.innerHTML = "<img src=\"" + qrgenservlet + "\">";
+    
+    	/*
+    	* Poll the auth svc to find out when we can leave this page.
+    	*/
+    	startPolling();
+    }
+    
+    function startPolling() {
+		console.log("About to poll: " + apiFormAction);
+		var putData = {"operation":"verify","polling":"true"};
+		putData["dsi"] = dsi;
+		$.ajax({ 
+			type:"PUT",
+			url: baseURL + apiFormAction,
+			headers: { 
+        		"Accept" : "application/json; charset=utf-8",
+        		"Content-Type": "application/json; charset=utf-8"
+		    },
+			data: JSON.stringify(putData)
+			}).done(function(data, textStatus, jqXHR) {
+				var rspStatus = jqXHR.status;
+				var rspJSON = data;
+
+				console.log("rspStatus: " + rspStatus);
+				console.log("rspJSON: " + JSON.stringify(rspJSON));
+				if (rspStatus == 200) {
+
+					if (rspJSON["action"] != null) {
+						// this is a successful poll, decide what to do next
+						
+						// update form action - browser and api version
+						apiFormAction = data.action;
+						formAction = apiFormAction.replace("/apiauthsvc?","/authsvc?");
+						console.log("newFormAction: " + formAction);
+
+						// check if we are ready to login
+						var loginReady = rspJSON["loginready"];
+						console.log("loginReady: " + loginReady);
+						if (loginReady != 'true') {
+							// re-poll after a short wait
+							var vdiv = document.getElementById('vdiv');
+							vdiv.innerHTML = vdiv.innerHTML + '.'; 						
+							console.log("re-polling...");
+							setTimeout(startPolling, 1000);
+						} else {
+							// we must have an answer - get the browser moving again
+							var myForm = document.getElementById('loginform');
+							myForm.action = formAction;
+							myForm.dsi.value = dsi;
+							console.log("submitting form");
+							myForm.submit();
+						}						
+					} else {
+						console.log("action was null. data: " + JSON.stringify(rspJSON));
+						// likely an error
+						var errtext = "Unexpected error polling server: " + JSON.stringify(rspJSON);
+						if (rspJSON["error"] != null) {
+							// just display the error and stop
+							errtext = rspJSON["error"];
+						}
+						document.getElementById("pdiv").innerHTML = errtext;
+					}
+				} else {
+					// TODO - add error handling for non-200 response
+					document.getElementById("pdiv").innerHTML = "Unexpected HTTP response code: " + rspStatus;
+				}
+			});
+    }
+    </script>
+        
+  </head>
+  <body onLoad="onLoadPage()">
+    <div id="pdiv">
+      <div id="ldiv">Login index: @LSI@</div>
+      <div id="qrdiv">      	
+      </div>  
+      <div id="vdiv">Waiting for IBM Verify</div>
+      <div id="fdiv" style="display: none;">
+        <form id="loginform" method="POST" accept-charset="UTF-8" action="@ACTION@">
+    	    <input type="hidden" name="operation" value="verify" />
+    	    <input type="hidden" name="polling" value="false" />
+    	    <input type="hidden" name="dsi" value="" />
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
