@@ -1,0 +1,68 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>User Information</title>
+    <link rel="stylesheet" type="text/css" href="/sps/static/styles.css"></link>
+    <script type="text/javascript">
+    
+    	// we use single quotes here since the value will be stringified JSON that contains double quotes
+		var credObj = @USER_CRED_JSON@;
+		
+		function htmlEncode(str) {
+			return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		}
+		
+		function onLoad() {
+			if (credObj != null) {
+				// get and sort all the attributes by name
+				var attrList = credObj.AttributeList;
+				attrList.sort(function(a,b){return (a.name < b.name ? -1 : (a.name > b.name ? 1 : 0));});
+
+				
+				// now display them in the table
+				var t = document.getElementById("credtable");
+				for (var i = 0; i < attrList.length; i++) {
+					var attrValuesHTML = "";
+					if (attrList[i]["values"] != null && attrList[i]["values"].length > 0) {
+						for (var j = 0; j < attrList[i]["values"].length; j++) {
+							if (j > 0) {
+								attrValuesHTML += "<br>";
+							}
+							attrValuesHTML += "["+j+"]: " + htmlEncode(attrList[i]["values"][j]);
+						}
+					}
+					
+					var row = t.insertRow(-1);
+					row.insertCell(0).innerHTML = htmlEncode(attrList[i].name);
+					row.insertCell(1).innerHTML = attrValuesHTML;
+				}
+				
+				document.getElementById("creddiv").style.display = "block";
+			}
+		}
+	</script>    
+  </head>
+
+  <body onLoad="onLoad()">
+  <div class="header">
+    <div class="brandingLogo"><img src="/sps/static/ibm-logo.png"></img></div>
+  </div>
+  <div class="content">
+    <div class="contentHeader">
+      <h1 class="pageTitle">User Information</h1>
+    </div>
+    <div id="userinfodiv"><a href="../../..">Home</a></div>
+    <br />
+    <div id="creddiv" style="display:none">
+    	<h2 class="sectionTitle">User Attributes</h2>
+	    <table class="credTable" id="credtable" border="1">
+		  <thead>
+		    <tr class="headerRow"><th>Name</th><th>Value(s)</th></tr>
+		  </thead>
+		  <tbody></tbody>
+	    </table>
+    
+    </div>
+</div>
+</body>
+</html>

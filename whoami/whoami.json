@@ -1,0 +1,1 @@
+{ "authenticated": @AUTHENTICATED@, "username": "@USERNAME@", "credJson": @USER_CRED_JSON@ }
