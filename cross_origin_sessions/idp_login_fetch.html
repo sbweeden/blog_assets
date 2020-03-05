@@ -5,16 +5,8 @@
 var isamSite = "https://idp1.com";
 var amiauthenticated = isamSite + "/mga/sps/apiauthsvc/policy/amiauthenticated";
 
-function htmlEncode(s) {
-	if (s) {
-		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-	} else {
-	    return '';
-	}
-}
-
 function displayMessage(msg) {
-	document.getElementById("msgdiv").innerHTML = htmlEncode(msg);
+	document.getElementById("msgdiv").textContent = msg;
 }
 
 function detectLogin() {
