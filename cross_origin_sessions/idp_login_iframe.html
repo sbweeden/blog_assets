@@ -18,7 +18,10 @@ function receiveMessage(event) {
 
 function detectLogin() {
 	window.addEventListener("message", receiveMessage, false);
-	document.getElementById('detectLoginDiv').innerHTML = "<iframe src=\"" + amiauthenticated + "\"></iframe>";
+	var myframe = document.createElement("iframe");
+	myframe.setAttribute("src", amiauthenticated);
+	document.getElementById("detectLoginDiv").innerHTML = "";
+	document.getElementById("detectLoginDiv").appendChild(myframe);
 }
 
 </script>
