@@ -1,0 +1,41 @@
+<html>
+<head>
+<script type="text/javascript">
+
+var isamSite = "https://fidointerop.securitypoc.com";
+var amiauthenticated = isamSite + "/mga/sps/authsvc/policy/amiauthenticated";
+
+function htmlEncode(s) {
+	if (s) {
+		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	} else {
+	    return '';
+	}
+}
+
+function displayMessage(msg) {
+	document.getElementById("msgdiv").innerHTML = htmlEncode(msg);
+}
+
+function receiveMessage(event) {
+	if (event.origin == isamSite) {
+		var authenticated = event.data.authenticated;
+		displayMessage("Authenticated: " + authenticated);
+	}
+}
+
+function detectLogin() {
+	window.addEventListener("message", receiveMessage, false);
+	document.getElementById('detectLoginDiv').innerHTML = "<iframe src=\"" + amiauthenticated + "\"></iframe>";
+}
+
+</script>
+</head>
+<body onload="detectLogin()">
+<div id="msgdiv">
+	One moment...
+</div>
+<div id="detectLoginDiv" style="display:none">
+</div>
+</body>
+</html>

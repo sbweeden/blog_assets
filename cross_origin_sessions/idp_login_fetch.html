@@ -1,0 +1,46 @@
+<html>
+<head>
+<script type="text/javascript">
+
+var isamSite = "https://idp1.com";
+var amiauthenticated = isamSite + "/mga/sps/apiauthsvc/policy/amiauthenticated";
+
+function htmlEncode(s) {
+	if (s) {
+		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	} else {
+	    return '';
+	}
+}
+
+function displayMessage(msg) {
+	document.getElementById("msgdiv").innerHTML = htmlEncode(msg);
+}
+
+function detectLogin() {
+	fetch( amiauthenticated, 
+	{
+		method: 'GET',
+		mode: 'cors',
+		credentials: 'include',
+		headers: {
+			'Accept': 'application/json'
+		}
+	}).then((response) => {
+		console.log("Received response status: " + response.status);
+		return response.json();
+	}).then((data) => {
+		displayMessage("Authenticated: " + data.authenticated);
+	}).catch((error) => {
+		console.log("Received error: " + error);
+	});
+}
+
+</script>
+</head>
+<body onload="detectLogin()">
+<div id="msgdiv">
+	One moment...
+</div>
+</body>
+</html>
