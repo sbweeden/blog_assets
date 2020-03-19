@@ -102,7 +102,7 @@ if (username != null) {
 			// can use email
 			var method = {};
 			method["type"] = "smsOTP";
-			method["policyURI"] = "urn:ibm:security:authentication:asf:emailOTP";			
+			method["policyURI"] = "urn:ibm:security:authentication:asf:smsOTP";			
 			method["displayLabel"] = "SMS OTP to: " + obscureString(phoneNumber,3,3,[]);
 			method["deliveryAttribute"] = phoneNumber;
 			permittedMethods.push(method);
