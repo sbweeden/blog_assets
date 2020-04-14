@@ -1,0 +1,130 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>WhoAmI demonstration</title>
+    <link rel="stylesheet" type="text/css" href="mga/sps/static/styles.css"></link>
+    <script type="text/javascript">
+    
+    	var locationHostPort = location.hostname+(location.port ? ':'+location.port: ''); 
+		var baseURL = location.protocol+'//'+locationHostPort;
+		        
+    	function htmlEncode(str) {
+			return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		}
+
+		function displayError(errtext) {
+			document.getElementById("userinfodiv").innerHTML = "Error: " + htmlEncode(errtext);
+		}
+		    
+    	function processWhoAmI(data) {
+    		if (data.authenticated) {
+    			document.getElementById("userinfodiv").innerHTML = "Welcome: <b>" + htmlEncode(data.username) + '</b>&nbsp;&nbsp;<a href="/pkmslogout">Logout</a>&nbsp;&nbsp;<a href="/">Home</a><br /><br />';
+    		}
+    		
+			if (data["credJson"] != null) {
+				// get and sort all the attributes by name
+				var attrList = data.credJson.AttributeList;
+				attrList.sort(function(a,b){return (a.name < b.name ? -1 : (a.name > b.name ? 1 : 0));});
+
+				
+				// now display them in the table
+				var t = document.getElementById("credtable");
+				for (var i = 0; i < attrList.length; i++) {
+					var attrValuesHTML = "";
+					if (attrList[i]["values"] != null && attrList[i]["values"].length > 0) {
+						for (var j = 0; j < attrList[i]["values"].length; j++) {
+							if (j > 0) {
+								attrValuesHTML += "<br>";
+							}
+							var attrDisplayValue = attrList[i]["values"][j];
+							// just htmlEncode the whole value
+							attrDisplayValue = htmlEncode(attrDisplayValue);
+							attrValuesHTML += "["+j+"]: " + attrDisplayValue;
+						}
+					}
+					
+					var row = t.insertRow(-1);
+					row.insertCell(0).innerHTML = htmlEncode(attrList[i].name);
+					row.insertCell(1).innerHTML = attrValuesHTML;
+				}
+				
+				document.getElementById("creddiv").style.display = "block";
+			}
+    	}
+    	
+	    function onLoad() {
+	    		// perform ajax request to get whoami data
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function() {processResponse(request);};
+               
+                request.open("POST", baseURL + '/mga/sps/apiauthsvc/policy/whoami');
+                request.setRequestHeader("Content-type", "application/json");
+                request.setRequestHeader("Accept", "application/json");
+                // send same parameters as the old FORM method of pressing the Verify button
+                var putBody = {"operation": "verify"};
+                request.send(JSON.stringify(putBody));
+		}
+
+		function processResponse(request) {
+			var errtext = null;
+        	if (request.readyState == 4) { 
+        		// request done, process it
+                if (request.status == 200) { 
+                    var json = null;
+                    var responseText = null;
+                    if(request.responseText) {
+                        var responseText = request.responseText;
+                        var jObj = null;
+                        try {
+                        	jObj = JSON.parse(responseText);
+                        } catch (e) {
+                        	// we got a 200, but not valid JSON - that's an error
+                        	console.log(e);
+                        	console.log("Received invalid JSON: " + request.responseText);
+                        	errtext = "Invalid JSON data received";
+                        }
+                        if(jObj != null) {
+                        	processWhoAmI(jObj);
+	                    } 
+                    } else {
+                    	errtext = "Received 200 response, but no response text";
+                    }
+                } else {
+                	errtext = "Received error status when trying to obtain whoami information: " + request.status;
+                }
+
+                // if there is an error, display it
+                if (errtext != null) {
+                	displayError(errtext);
+                }
+            } else {
+            	// readyState is not 4, that's ok, just continue.
+            }
+         }
+    </script>
+  </head>
+  <body onLoad="onLoad()">
+    <div class="header">
+      <div class="brandingLogo"><img src="/mga/sps/static/ibm-logo.png"></img></div>
+    </div>
+    <div class="content">
+      <div class="contentHeader">
+        <h1 class="pageTitle">User Information</h1>
+      </div>
+      <div class="pageContent">
+      		<div id="userinfodiv"><a href="/">Home</a></div>
+      		<br />
+    		<div id="creddiv" style="display:none">
+    		  <h2 class="sectionTitle">User Attributes</h2>
+	    	  <table class="credTable" id="credtable" border="1">
+		  		<thead>
+		    	  <tr class="headerRow"><th>Name</th><th>Value(s)</th></tr>
+		  		</thead>
+		  		  <tbody></tbody>
+	    	  </table>
+      		</div>
+	  </div>
+	 </div>
+  </body>
+</html>
