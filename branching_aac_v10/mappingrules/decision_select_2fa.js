@@ -1,5 +1,5 @@
 importClass(Packages.com.tivoli.am.fim.trustserver.sts.utilities.IDMappingExtUtils);
-importMappingRule("MMFASCIMHelper");
+importClass(Packages.com.tivoli.am.fim.registrations.MechanismRegistrationHelper);
 
 /*
  * The purpose of this decision mapping rule is to demonstrate branching AAC authentication policies.
@@ -22,9 +22,9 @@ var result = false;
 
 // Utility function to obscure a string, leaving head and tail chars intact and replaceing the rest with asterix, excluding any chars in excludeList
 function obscureString(s,head,tail,excludeList) {
-	var result = '';
-	for (var i = 0; i < s.length; i++) {
-		var c = s[i];
+	let result = '';
+	for (let i = 0; i < s.length; i++) {
+		let c = s[i];
 		if (i < head || (i+tail) >= s.length) {
 			result = result + c;
 		} else {
@@ -41,18 +41,18 @@ var username = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:token:at
 IDMappingExtUtils.traceString("username from existing token: " + username);
 if (username != null) {
 	// is this the result of the user selecting a method?
-	var chosenMethodIndexStr = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter", "choice");
+	let chosenMethodIndexStr = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter", "choice");
 	if (chosenMethodIndexStr != null) {
 		// retrieve the real session options and validate this is a permitted choice
-		var sessionMethodsStr = context.get(Scope.SESSION, "urn:myns", "sessionMethods");
+		let sessionMethodsStr = context.get(Scope.SESSION, "urn:myns", "sessionMethods");
 		if (sessionMethodsStr != null) {
-			var sessionMethods = JSON.parse(''+sessionMethodsStr);
-			var chosenMethodIndex = chosenMethodIndexStr - "0";
+			let sessionMethods = JSON.parse(''+sessionMethodsStr);
+			let chosenMethodIndex = chosenMethodIndexStr - "0";
 			if (chosenMethodIndex >= 0 && chosenMethodIndex < sessionMethods.length) {
 				// this is ok, use the chosen method.
 				
 				// perform any pre-redirect session state establishment
-				var methodType = sessionMethods[chosenMethodIndex]["type"];
+				let methodType = sessionMethods[chosenMethodIndex]["type"];
 				
 				// email and sms otp use a delivery attribute
 				if (methodType == "emailOTP" || methodType == "smsOTP") {
@@ -78,12 +78,27 @@ if (username != null) {
 		}
 	} else {
 		// figure out permitted methods and render the selection page 
-		var permittedMethods = [];
+		let permittedMethods = [];
+
+		// get mechanims we know the user has access to
+		let userMechanisms = {};
+		let mechList = MechanismRegistrationHelper.getRegistrationsForUser(username);
+		if (mechList != null) {
+			let jsonMechList = JSON.parse(''+mechList.toString());
+			//IDMappingExtUtils.traceString("jsonMechList: " + JSON.stringify(jsonMechList));
+			jsonMechList.forEach((m) => {
+				if (m["enabled"] || m["isEnrolled"]) {
+					userMechanisms[m["mechanismURI"]] = true;
+				}
+			});
+		}
+		//IDMappingExtUtils.traceString("userMechanisms: " + JSON.stringify(userMechanisms));
 		
 		
 		// can this user do email OTP (we look for a cred attribute, but you could use UserLookupHelper or SCIM to query as well)
 		// this shows a hard-coded test value, and commented out is an example of looking for the value from a credential attribute
-		var emailAddress = "testuser@mailinator.com"; // context.get(Scope.REQUEST, "urn:ibm:security:asf:request:token:attribute", "emailAddress");
+		// var emailAddress = "testuser@mailinator.com";
+		var emailAddress = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:token:attribute", "emailAddress");
 		if (emailAddress != null) {
 			// make JS string
 			emailAddress = '' + emailAddress;
@@ -111,8 +126,7 @@ if (username != null) {
 		}
 		
 		// can this user do IBM Verify
-		if (isIBMVerifyRegisteredForUser(username)) {
-			// can use IBM Verify
+		if (userMechanisms["urn:ibm:security:authentication:asf:mechanism:mmfa"]) {
 			var method = {};
 			method["type"] = "ibmVerify";
 			method["branchName"] = "IBM Verify";
@@ -121,8 +135,7 @@ if (username != null) {
 		}
 		
 		// can this user do TOTP
-		var canDoTOTP = (IDMappingExtUtils.retrieveSecretKey("otpfed","jdbc_userinfo",username,"otp.hmac.totp.secret.key","urn:ibm:security:otp:hmac") != null);
-		if (canDoTOTP) {
+		if (userMechanisms["urn:ibm:security:authentication:asf:mechanism:totp"]) {
 			var method = {};
 			method["type"] = "totp";
 			method["branchName"] = "TOTP";
@@ -131,7 +144,7 @@ if (username != null) {
 		}
 				
 		// can this user do FIDO2
-		if (isFIDO2RegisteredForUser(username)) {
+		if (userMechanisms["urn:ibm:security:authentication:asf:mechanism:fido2"]) {
 			// can use FIDO2
 			var method = {};
 			method["type"] = "fido2";
@@ -142,7 +155,7 @@ if (username != null) {
 
 		// add more methods here if you have them
 		
-		IDMappingExtUtils.traceString("The final list of permitted methods is: " + JSON.stringify(permittedMethods));
+		//IDMappingExtUtils.traceString("The final list of permitted methods is: " + JSON.stringify(permittedMethods));
 		
 		// if any possible methods, store them in session state, then send back just the ordered list of display labels to the selection page
 		if (permittedMethods.length > 0) {
