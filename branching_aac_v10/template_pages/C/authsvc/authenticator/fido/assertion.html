@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>IBM Verify</title>
+    <link rel="stylesheet" type="text/css" href="/sps/static/design.css"></link>
+    <link rel="stylesheet" type="text/css" href="/sps/static/ci.css"></link>
+    <link rel="stylesheet" type="text/css" href="/sps/static/ci-popup.css"></link>
+    <script src="/sps/static/authsvcMsg.js"></script>
+    <script src="/sps/static/base64js.min.js" type="text/javascript"></script>
+    <script src="/sps/static/jsrsasign-all-min.js" type="text/javascript"></script>
+    <script src="/sps/mga/user/mgmt/html/common.js" type="text/javascript"></script>
+    <script>
+
+    var rpId = "@FIDO_RP_ID@";
+    var timeout = "@FIDO_TIMEOUT@";
+    var challenge = "@FIDO_CHALLENGE@";
+    var allowCredentialsStr = '@FIDO_ALLOW_CREDENTIALS@';
+    var extensionsStr = '@FIDO_EXTENSIONS@';
+    var userVerification = "@FIDO_USER_VERIFICATION@";
+    var userId = "@FIDO_USER_ID@";
+    var status = "@FIDO_STATUS@";
+    var errorMessage = "@FIDO_ERROR_MESSAGE@";
+
+    var publicKey = null;
+
+    function getJunctionName() {
+        var jct = window.getCookie("IV_JCT");
+        if (jct != null && jct != "") {
+            return jct;
+        } else {
+            return "@JUNCTION@";
+        }
+    }
+
+    function cancel() {
+        document.getElementById("cancelForm").submit();
+    }
+
+    function base64URLEncodeJSON(json) {
+        var str = JSON.stringify(json);
+        var result = utf8tob64u(str);
+        return result;
+    }
+
+    function base64URLEncode(bytes, encoding = 'utf-8') {
+        if(bytes == null || bytes.length == 0) {
+            return null;
+        }
+        var str = base64js.fromByteArray(new Uint8Array(bytes));
+        str = str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        return str;
+    }
+
+    function base64URLDecode(str, encoding = 'utf-8') {
+        if(str == null || str == "") {
+            return null;
+        }
+
+        var str = str.replace(/-/g, '+').replace(/_/g, '\/');
+
+        var pad = str.length % 4;
+        if(pad) {
+          str += new Array(5-pad).join('=');
+        }
+
+        var bytes = base64js.toByteArray(str);
+        return bytes.buffer;
+    }
+
+    function populateStrings() {
+        document.title = authsvcMsg.fido2Authentication;
+        document.querySelector('#assertion-section h3').textContent = authsvcMsg.twoStepVerification;
+        document.querySelector('#assertion-section h1').textContent = authsvcMsg.letsMakeSure;
+        document.getElementById("instructions").textContent = "Click 'Login with FIDO' if you have your authenticator ready to perform 2FA.";
+
+        document.querySelector("#error-section h1").textContent = authsvcMsg.errorLabel;
+
+        document.getElementById("error_img").src=getJunctionName()+"/sps/static/design_images/u2f_error.svg";
+        document.getElementById("welcome_img").src=getJunctionName()+"/sps/static/design_images/u2f_device.svg";
+    }
+
+    function startup() {
+        populateStrings();
+
+        var extensions = {};
+        if(extensionsStr != null && extensionsStr != "") {
+            extensions = JSON.parse(extensionsStr);
+        }
+
+        publicKey = {
+            "rpId": rpId,
+            "timeout": timeout,
+            "challenge": base64URLDecode(challenge),
+            "extensions": extensions,
+            "userId": userId
+        };
+
+        if(userVerification != null && userVerification != "") {
+            publicKey.userVerification = userVerification;
+        }
+
+        var allowCredentials = [];
+        if(allowCredentialsStr != null && allowCredentialsStr.length > 0) {
+            var allowCredentialsJson = JSON.parse(allowCredentialsStr);
+            if(allowCredentialsJson.length > 0) {
+                for (i in allowCredentialsJson) {
+                    allowCredentialsJson[i].id = base64URLDecode(allowCredentialsJson[i].id);
+                    allowCredentials.push(allowCredentialsJson[i]);
+                }
+            }
+
+            publicKey.allowCredentials = allowCredentials;
+        }
+
+        displayTryAnotherWay();
+    }
+
+    function displayTryAnotherWay() {
+        // if we are in a branching policy, show the Try Another Way button
+        let inBranch = ("@IN_BRANCH@" != "");
+        let returnEnabled = ("@RETURN_ENABLED@" == "true");
+        if (inBranch && returnEnabled) {
+            tryAnotherWayDiv.className = "";
+        }
+    }
+
+    function tryAnotherWay() {
+        let assertionForm = document.getElementById("assertionForm");
+        assertionForm.operation.value = "returnToDecision";
+        assertionForm.submit();
+    }
+
+    function credentialsGet() {
+        navigator.credentials.get({ publicKey }).then(function (assertion) {
+
+            var assertionForm = document.getElementById("assertionForm");
+            assertionForm.id.value = assertion.id;
+            assertionForm.rawId.value = base64URLEncode(assertion.rawId);
+            assertionForm.clientDataJSON.value = base64URLEncode(assertion.response.clientDataJSON);
+            assertionForm.authenticatorData.value = base64URLEncode(assertion.response.authenticatorData);
+            assertionForm.signature.value = base64URLEncode(assertion.response.signature);
+            assertionForm.userHandle.value = base64URLEncode(assertion.response.userHandle);
+            assertionForm.type.value = assertion.type;
+            assertionForm.getClientExtensionResults.value = base64URLEncodeJSON(assertion.getClientExtensionResults());
+            assertionForm.submit();
+
+        }).catch(function (err) {
+            showError(err);
+        });
+    }
+
+    function retry() {
+        document.getElementById("error-section").classList.remove('bx--dialog-content--visible');
+        document.getElementById("error-section").classList.add('bx--dialog-content--hidden');
+        setTimeout(function () {
+            document.getElementById("error-section").style.left = '100%';
+        }, 300);
+        document.getElementById("assertion-section").style.left = '';
+        document.getElementById("assertion-section").classList.add('bx--dialog-content--visible');
+        document.getElementById("assertion-section").classList.remove('bx--dialog-content--hidden');
+
+        credentialsGet();
+    }
+
+    function showError(errMsg) {
+        document.getElementById("assertion-section").classList.remove('notransition');
+        document.getElementById("assertion-section").classList.remove('bx--dialog-content--visible');
+        document.getElementById("assertion-section").classList.add('bx--dialog-content--hidden');
+        setTimeout(function () {
+            document.getElementById("assertion-section").style.left = '-100%';
+        }, 300);
+        document.getElementById("error-section").style.left = '';
+        document.getElementById("error-section").classList.add('bx--dialog-content--visible');
+        document.getElementById("error-section").classList.remove('bx--dialog-content--hidden');
+        document.getElementById("errorMessage").textContent = errMsg;
+    }
+    </script>
+  </head>
+  <body onload="startup()">
+    <div id="bx--dialog" style="z-index: 2000; box-sizing: initial; display: block;">
+        <div class="bx--dialog-window notransition" style="z-index: 2000;">
+            <section id="assertion-section" class="bx--dialog-content bx--dialog-content--visible notransition">
+                <div class="bx--layout-large-right">
+                    <h3></h3><!-- Two-step verification -->
+                    <h1></h1><!-- Let's make sure it's you -->
+                    <p id="instructions" class="type-body-m"></p>
+                    <p><input class="bx--btn bx--btn--primary bx--btn--sm fido--i--btn" type="button" id="loginButton" name="loginButton" value="Login with FIDO" onclick="credentialsGet()" /></p>
+                    <div id="tryAnotherWayDiv" class="hidden">
+                        <p><input class="bx--btn bx--btn--primary bx--btn--sm" type="button" id="tryAnotherWayButton" name="tryAnotherWayButton" value="Try Another Way" onclick="tryAnotherWay()" /></p>
+                    </div>
+                    <div class="bx--loader"></div>
+                </div>
+                <div class="bx--layout-left">
+                    <a href="javascript:void(0);" class="bx--dialog-back bx--nav-sectionlink-back" title="Back" role="navigation" tabindex="50" onclick="cancel();" style="background-image: url('/'+getJunctionName()+'/sps/static/design_images/back-light.svg');"></a>
+                    <div class="bx--welcome-illustrations">
+                        <img id="welcome_img" class="bx--launch-animation" />
+                    </div>
+                </div>
+            </section>
+            <section id="error-section" class="bx--dialog-content">
+                <div class="bx--layout-large-right">
+                    <h1></h1><!-- Error -->
+                    <p id="errorMessage" class="type-body-m">@ERROR_MESSAGE@</p>
+                </div>
+                <div class="bx--layout-left">
+                    <a href="javascript:void(0);" class="bx--dialog-back bx--nav-sectionlink-back" title="Back" role="navigation" tabindex="50" onclick="retry();" style="background-image: url('/'+getJunctionName()+'/sps/static/design_images/back-light.svg');"></a>
+                    <div class="bx--welcome-illustrations">
+                        <img id="error_img" class="bx--launch-animation" style="width: 50%;left: 25%;position: absolute;"/>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+    <form id="assertionForm" method="POST" action="@ACTION@@FIDO_INFOMAP_PARAM@" autocomplete="off">
+        <input type="hidden" name="operation" value="verify" />
+        <input type="hidden" name="StateId" value="@STATE@" />
+        <input type="hidden" name="id" value="" />
+        <input type="hidden" name="rawId" value="" />
+        <input type="hidden" name="clientDataJSON" value="" />
+        <input type="hidden" name="authenticatorData" value="" />
+        <input type="hidden" name="signature" value="" />
+        <input type="hidden" name="userHandle" value="" />
+        <input type="hidden" name="type" value="" />
+        <input type="hidden" name="getClientExtensionResults" value="" />
+    </form>
+    <form id="cancelForm" method="POST" action="@CANCEL_ACTION@" autocomplete="off">
+        <input type="hidden" name="operation" value="cancel" />
+    </form>
+  </body>
+</html>

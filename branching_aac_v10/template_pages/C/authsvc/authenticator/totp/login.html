@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <title>TOTP One-Time Password Login</title>
+        <link rel="stylesheet" type="text/css" href="/sps/static/design.css"></link>
+        <link rel="stylesheet" type="text/css" href="/sps/static/ci.css"></link>
+        <link rel="stylesheet" type="text/css" href="/sps/static/ci-popup.css"></link>
+        <script src="/sps/static/ciI18n.js"></script>
+        <script src="/sps/mga/user/mgmt/html/common.js" type="text/javascript"></script>
+        <script type="text/javascript">
+            function displayError(){
+                var errorDiv = document.getElementById("errorDiv");
+                var errorStr = "@ERROR_MESSAGE@";
+
+                if (errorStr != "") {
+                    errorDiv.innerHTML = "<p><b>Error: </b>" + errorStr + "</p>";
+                    errorDiv.className = "errorMessage visible";
+                }
+            }
+
+            function validateOtp(button) {
+                var container = button.parentNode.parentNode;
+                var otpInput = container.querySelector('#otp');
+                var otp = otpInput.value;
+
+                if(checkValid(otpInput, "otp")) {
+                    document.querySelector(".bx--loader").classList.remove('hidden');
+                    document.querySelector(".bx--welcome-illustrations .bx--launch-animation").classList.add('hidden');
+                    document.getElementById("validateForm").otp.value = otp;
+                    document.getElementById("validateForm").submit();
+                }
+            }
+
+            function showValidation() {
+                document.getElementById("connect-section").classList.remove('bx--dialog-content--visible');
+                document.getElementById("connect-section").classList.add('bx--dialog-content--hidden');
+                setTimeout(function () {
+                    document.getElementById("connect-section").style.left = '-100%';
+                }, 300);
+                document.getElementById("validation-section").style.left = '';
+                document.getElementById("validation-section").classList.add('bx--dialog-content--visible');
+
+                setTimeout(function () {
+                    document.getElementById("otp").focus();
+                }, 300);
+            }
+
+            function checkValid(input) {
+                var valid = false;
+                var value = input.value;
+                if(value != null && value != "" && input.validity.valid) {
+                    valid = true;
+                }
+                if(valid) {
+                    if (input.classList.contains('input-invalid')) {
+                        input.classList.remove('input-invalid');
+                    }
+                } else {
+                    input.classList.add('input-invalid');
+                }
+                document.getElementById("validate-button").disabled = !valid;
+
+                return valid;
+            }
+
+            function populateStrings() {
+                document.title = ciMsg.totpLogin;
+                document.querySelector('#validation-section h3').textContent = ciMsg.twoStepVeri;
+                document.querySelector('#validation-section h1').textContent = ciMsg.totpLogin;
+                document.getElementById("instructions").textContent = ciMsg.totpVerificationInstructions;
+                document.querySelectorAll("#validation-section p")[2].textContent = ciMsg.accessCode;
+                document.getElementById("otp").placeholder = ciMsg.enterCode;
+                document.querySelector("#validation-section .button-bottom").textContent = ciMsg.validate;
+            }
+
+            function startup() {
+                populateStrings();
+
+                displayError();
+
+                var input = document.querySelector('#otp');
+                input.addEventListener("keyup", function(event) {
+                    event.preventDefault();
+                    // Enter key is 13, space is 32
+                    if (event.keyCode === 13 || event.keyCode == 32) {
+                        document.querySelector('#validate-button').click();
+                    }
+                });
+                displayTryAnotherWay();
+            }
+
+            function displayTryAnotherWay() {
+                // if we are in a branching policy, show the Try Another Way div
+                let inBranch = ("@IN_BRANCH@" != "");
+                let returnEnabled = ("@RETURN_ENABLED@" == "true");
+                console.log("inBranch: " + inBranch + " returnEnabled: " + returnEnabled);
+                if (inBranch && returnEnabled) {
+                    document.getElementById("back-button").classList.remove("hidden");
+                }
+            }
+
+            function tryAnotherWay() {
+                let validateForm = document.getElementById("validateForm");
+                validateForm.operation.value = "returnToDecision";
+                validateForm.submit();
+            }
+        </script>
+    </head>
+    <body onload="startup()">
+        <div id="bx--dialog" style="z-index: 2000; box-sizing: initial; display: block;">
+            <div class="bx--dialog-window" style="z-index: 2000;">
+
+                <section id="validation-section" class="bx--dialog-content bx--dialog-content--visible notransition">
+                    <div class="bx--layout-left">
+                        <div class="bx--welcome-illustrations">
+                            <div class="bx--loader loader-dark hidden"></div>
+                            <img src="./static/design_images/credentials_devices.svg" class="bx--launch-animation" />
+                        </div>
+                    </div>
+                    <div class="bx--layout-large-right">
+                        <h3></h3><!-- Set up two-step verification -->
+                        <h1 style="margin-top:4px;"></h1><!-- TOTP One-Time Password Login -->
+                        <p class="type-body-m" id="instructions"></p><!-- Enter the access code generated by your authenticator app. -->
+                        <p class="type-body-m"  id="errorDiv" class="errorMessage error-msg hidden"></p>
+                        <p style="margin-top:40px;margin-bottom:8px;font-size:8pt"></p><!-- Access Code -->
+                        <input id="otp" class="ci-input" type="number" style="height:46px;width:60%;padding-left:12px;" oninput="checkValid(this);" tabindex="1">
+                        <button id="validate-button" class="button-1 button-bottom" onclick="validateOtp(this)" type="button" tabindex="1" disabled></button><!-- Validate -->
+                        <button id="back-button" class="button-1 button-bottom hidden" onclick="tryAnotherWay()" type="button" tabindex="2" style="right:240px">Try another way</button>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <form id="validateForm" method="POST" action="@ACTION@">
+          <input type="hidden" name="otp" value="">
+          <input type="hidden" name="operation" value="verify">
+        </form>
+    </body>
+</html>

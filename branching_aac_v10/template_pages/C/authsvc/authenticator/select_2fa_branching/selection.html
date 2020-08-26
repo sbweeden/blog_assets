@@ -1,0 +1,33 @@
+<html>
+<head>
+<title>2FA Method Selection</title>
+<script type="text/javascript">
+
+function onLoad() {
+	var labels = @LABELS@;
+	
+	var choiceSelect = document.getElementById("choiceSelect");
+	
+	for (var i = 0; i < labels.length; i++) {
+		var option = document.createElement("option");
+		option.setAttribute("value", ""+i);
+		option.text = labels[i];
+		choiceSelect.add(option);
+	}
+	
+	document.getElementById("selectdiv").style.display = "block";
+}
+
+</script>
+</head>
+<body onLoad="onLoad()">
+<form method="POST" action="@ACTION@">
+<div id="selectdiv" style="display:none">
+	Select 2FA Mechanism:&nbsp;<select id="choiceSelect" name="choice"></select>
+	<br /><br />
+	<input type="hidden" name="operation" value="verify" />
+	<input type="submit" value="Continue" />
+</div>
+</form>
+</body>
+</html>

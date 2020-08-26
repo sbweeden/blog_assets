@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD>
+
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<META name="GENERATOR" content="IBM Software Development Platform">
+<TITLE>MAC One-Time Password Login</TITLE>
+
+<link rel="stylesheet" type="text/css" href="/sps/static/styles.css"></link>
+
+<STYLE TYPE="text/css">
+
+.hidden {
+    font-weight:bold;
+    position:absolute;
+    left:-10000px;
+    top:auto;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+}
+
+.visible {
+    font-weight:bold;
+    position:static; 
+    width:auto; 
+    height:auto;
+}
+</STYLE>
+
+        <SCRIPT type="text/javascript">
+            
+
+            function windowStart() {
+                displayError();
+                displayMappingRuleData();
+                displaySelectButton();
+                displayDeliveryAttr();
+                displayTryAnotherWay();
+            }          
+
+            function displayError(){
+                var errorDiv = document.getElementById('errorDiv');
+                var errorStr="@ERROR_MESSAGE@";
+           
+                if (errorStr != "") {
+                    errorDiv.innerHTML = "<b>Error: <\/b>" + errorStr + "<br><br>";
+                    errorDiv.className = "errorMessage visible";
+                }      
+            }
+
+            function displayMappingRuleData(){
+                var mappingRuleDataDiv = document.getElementById('mappingRuleDataDiv');
+                var mappingRuleDataStr ="@MAPPING_RULE_DATA@";
+           
+                if (mappingRuleDataStr != "") {
+                    mappingRuleDataDiv.innerHTML = "<b>Mapping rule data: <\/b>" + mappingRuleDataStr + "<br><br>";
+                    mappingRuleDataDiv.className = "visible";
+                }      
+            }
+            
+            function displaySelectButton(){
+                var reselectButtonDiv = document.getElementById('reselectButtonDiv');
+                var displaySelectButton="@DISPLAY_RESELECT_BUTTON@";
+           
+                if (displaySelectButton != "") {
+                    reselectButtonDiv.className = "";
+                }      
+            }
+            
+            function displayDeliveryAttr(){
+                var deliveryAttrSpan = document.getElementById('delivery_attr');
+                var deliverAttrTxt="@OTP_DELIVERY_ATTR@";
+           
+                if (deliverAttrTxt != "") {
+                    deliveryAttrSpan.innerHTML = " sent to " + deliverAttrTxt;
+                }      
+            }
+
+            /*
+            * Added to support "back navigation" part of a branching AAC authentication policy
+            */
+            function displayTryAnotherWay() {
+                // if we are in a branching policy, show the Try Another Way div
+                let inBranch = ("@IN_BRANCH@" != "");
+                let returnEnabled = ("@RETURN_ENABLED@" == "true");
+                console.log("inBranch: " + inBranch + " returnEnabled: " + returnEnabled);
+                if (inBranch && returnEnabled) {
+                    tryAnotherWayButtonDiv.className = "";
+                }
+            }
+
+            window.onload = windowStart;
+
+        </SCRIPT>
+
+</HEAD>
+<BODY>
+
+<div class="header">
+    <div class="brandingLogo"><img src="/sps/static/ibm-logo.png"></img></div>
+</div>
+<div class="content">
+<div class="contentHeader">
+    <h1 class="pageTitle">MAC One-Time Password Login</h1>
+    <div class="instructions">Enter the one-time password (OTP)<span id="delivery_attr"></span>.</div>
+</div>
+<div class="pageContent">
+<div class="hidden errorMessage" id="errorDiv" > </div> 
+            
+<FORM method="POST" action="@ACTION@" autocomplete="off">
+
+<div class="hidden" id="mappingRuleDataDiv"> </div> 
+
+<h2 class="sectionTitle">Login</h2>
+<div class="section">
+        <LABEL class="vertical" for="otppswd">One-Time Password:</LABEL>
+        <SPAN id="otpHintSpan">@OTP_HINT@</SPAN><SPAN id="otpHintDashSpan">-</SPAN>
+<INPUT type="password" name="otp.user.otp" class="short" id="otppswd" maxlength="40">
+<INPUT type="hidden" name="otp.user.otp-hint" class="short" id="otphint" value="@OTP_HINT@">  
+<input type="hidden" name="operation" value="verify">   
+                                               
+<div class="controls">
+    <INPUT class="submitButton" type="submit" name="Submit" value="Submit" @OTP_LOGIN_DISABLED@ >
+</div>
+</div>
+
+</FORM>
+
+<DIV id="regenerateButtonDiv">
+    <FORM method="POST" action="@ACTION@">
+    <input type="hidden" name="operation" value="generate">
+            Click on the Regenerate button to get a new one-time password value delivered.
+            <INPUT type="submit" name="Regenerate" value="Regenerate">              
+    </FORM>
+</DIV>
+
+<DIV id="reselectButtonDiv" class="hidden">
+    <FORM method="POST" action="@ACTION@">
+    <input type="hidden" name="operation" value="select">
+            Click on the Reselect button to reselect the method for generating, delivering, and verifying the one-time password.
+    <INPUT type="submit" name="Reselect" value="Reselect">
+    </FORM>
+</DIV>
+<!--
+    Added to support "back navigation" part of a branching AAC authentication policy
+-->
+<DIV id="tryAnotherWayButtonDiv" class="hidden">
+    <br />
+    <FORM method="POST" action="@ACTION@">
+    <input type="hidden" name="operation" value="returnToDecision">
+            Click on the Try Another Way button to reselect the 2FA technique altogether.
+    <INPUT type="submit" name="Try Another Way" value="Try Another Way">
+    </FORM>
+</DIV>
+</div>
+</div>
+
+</BODY>
+</HTML>
+
