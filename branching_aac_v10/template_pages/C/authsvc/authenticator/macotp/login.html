@@ -81,11 +81,9 @@
             * Added to support "back navigation" part of a branching AAC authentication policy
             */
             function displayTryAnotherWay() {
-                // if we are in a branching policy, show the Try Another Way div
-                let inBranch = ("@IN_BRANCH@" != "");
+                // if we are in a branching policy with return to decision enabled, show the Try Another Way div
                 let returnEnabled = ("@RETURN_ENABLED@" == "true");
-                console.log("inBranch: " + inBranch + " returnEnabled: " + returnEnabled);
-                if (inBranch && returnEnabled) {
+                if (returnEnabled) {
                     tryAnotherWayButtonDiv.className = "";
                 }
             }

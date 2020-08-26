@@ -118,10 +118,9 @@
     }
 
     function displayTryAnotherWay() {
-        // if we are in a branching policy, show the Try Another Way button
-        let inBranch = ("@IN_BRANCH@" != "");
+        // if we are in a branching policy with return to decision enabled, show the Try Another Way button
         let returnEnabled = ("@RETURN_ENABLED@" == "true");
-        if (inBranch && returnEnabled) {
+        if (returnEnabled) {
             tryAnotherWayDiv.className = "";
         }
     }
