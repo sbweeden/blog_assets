@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<script type="text/javascript" src="../../../../../mga/sps/mga/user/mgmt/html/device/fidoLoginHelper.js"></script>
+    <title>Post Login Processing</title>
+
+    <script type="text/javascript">
+    	function onLoadPage() {
+    		ac = getAmbientCredentials();
+
+    		// successful authentication, remember this as lastUser
+			ac.username = htmlDecode("%USERNAME%");
+			storeAmbientCredentials();
+
+			// Pick up the remember-session token and store it, then 
+			// redirect to the originally requested resource.
+			let token = "%HTTPRSPHDR{whoami}%";
+			if (token != null && token != "" && token != "Unknown") {
+				ac.whoami = token;
+				storeAmbientCredentials();
+			} else {
+				console.log("Unable to locate authentication token.");
+			}
+
+			let authURL = "%AUTH_URL%";
+			if (authURL == null || authURL == "none") {
+				authURL = getBaseURL();
+			}
+
+			// now redirect to authUrl
+			console.log("Redirecting to: " + authURL);
+			window.location.replace(authURL);
+		}
+    </script>
+  </head>
+  <body onload="onLoadPage()">
+  </body>
+</html>

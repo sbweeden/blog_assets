@@ -1,0 +1,133 @@
+<html>
+<head>
+<title>FIDO Detection</title>
+	<script type="text/javascript" src="/sps/static/base64js.min.js"></script>
+	<script type="text/javascript" src="/sps/mga/user/mgmt/html/device/fidoLoginHelper.js"></script>
+	<script type="text/javascript">
+
+		var fidoAssertionOptions = null;
+		var errText = "@ERROR@";
+
+		function offerUPLogin() {
+			if (ac.username != null) {
+				document.getElementById("usernameInput").value = ac.username;
+			}
+			document.getElementById("upDiv").style = "display:block";
+		}
+
+		function submitUPLogin() {
+			// should really do some pre-submit validation
+			let f = document.getElementById("operationForm");
+			addHidden(f, "username", document.getElementById("usernameInput").value);
+			addHidden(f, "password", document.getElementById("passwordInput").value);
+			f.submit();
+		}
+
+		function offerFIDOLogin() {
+			document.getElementById("usernameSpan").innerHTML = htmlEncode(ac.username);
+			document.getElementById("fidoDiv").style = "display:block";
+		}
+
+		function doFIDOLogin() {
+			processAssertionOptionsResponse(
+				fidoAssertionOptions,
+				(err) => {
+					console.log("Error doing FIDO login: " + err);
+					offerUPLogin();
+				}
+
+			)
+		}
+
+		function onLoad() {
+			ac = getAmbientCredentials();
+
+			// if the error macro is populated, display it
+			if (errText != "") {
+				document.getElementById("errorDiv").innerHTML = "Error: " + htmlEncode(errText);
+				document.getElementById("errorDiv").style = "display:block";
+			}
+
+			// do we have a username and JWT such that we can do FIDO credential discovery?
+			if (ac.username != null && ac.whoami != null) {
+				getFIDOAssertionOptions(
+					(options) => {
+						console.log("Successfully got assertion options: " + JSON.stringify(options));
+						// do these credentials contain at least one entry in the allowCredentials list?
+						if (options != null && options.allowCredentials != null && Array.isArray(options.allowCredentials) && options.allowCredentials.length > 0) {
+							// offer FIDO login
+							fidoAssertionOptions = options;
+							offerFIDOLogin();
+						} else {
+							// fallback to username/pwd login
+							offerUPLogin();
+						}
+					},
+					(error) => {
+						console.log("Error getting assertion options: " + error);
+						// fallback to username/pwd login
+						offerUPLogin();
+					});
+			} else {
+				// no existing ambient credentials, just offer username/password login
+				offerUPLogin();
+			}
+		}
+
+</script>
+
+<!-- CSS -->
+<style>
+	.titleClass {
+		font-family: Georgia, serif;
+		color: blue;
+		font-size: 30px;
+		text-decoration: underline;
+	}
+
+	.dataHeading {
+		font-family: Georgia, serif;
+		font-size: 25px;
+	}
+
+	.dataHeadingSuccess {
+		font-family: Georgia, serif;
+		color: #32CD32;
+		font-size: 25px;
+	}
+
+	.dataHeadingError {
+		font-family: Georgia, serif;
+		color: #FF9033;
+		font-size: 25px;
+	}
+
+	.dataTextArea {
+		font-family: "Lucida Console", Monaco, monospace;
+	}
+
+	.dataTextAreaError {
+		color: red;
+	}
+</style>
+
+</head>
+<body onLoad="onLoad()">
+	<div id="errorDiv" class="dataTextAreaError" style="display:none"></div>
+	<div id="fidoDiv" style="display:none">
+		Welcome back: <b><span id="usernameSpan"></span></b>
+		<p>It looks like you have one or more FIDO registrations. Would you like to reauthenticate with FIDO now?</p>
+		<p><input type="button" name="yes" value="Yes please!" onclick="doFIDOLogin()" />&nbsp;<input type="button" name="no" value="No, I'll use a password" onclick="offerUPLogin()" />
+	</div>
+	<div id="upDiv" style="display:none">
+		<table>
+			<tr><td>Username:</td><td><input id="usernameInput" type="text" name="usernameInput" value="" /></td></tr>
+			<tr><td>Password:</td><td><input id="passwordInput" type="password" name="passwordInput" value="" /></td></tr>
+			<tr><td colspan="2"><input type="button" name="Login" value="Login" onclick="submitUPLogin()" /></td></tr>
+		</table>
+	</div>
+	<form id="operationForm" method="POST" action="@ACTION@">
+		<input type="hidden" name="operation" value="verify" />
+	</form>
+</body>
+</html>
