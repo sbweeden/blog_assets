@@ -1,0 +1,31 @@
+<html>
+<head>
+<title>YubiOTP Login</title>
+<script>
+	function onLoad() {
+		document.getElementById("otpfield").focus();
+	}
+</script>
+</head>
+<body  onload="onLoad()">
+Welcome: @USERNAME@
+<br>
+<form method="POST" action="@ACTION@" autocomplete="off">
+<input type="hidden" name="operation" value="verify" />
+<table>
+<tr>
+  <td>Operation</td>
+  <td>
+    <select name="mode">
+      <option value="authenticate" selected>Authenticate</option>
+      <option value="register">Register</option>
+    </select>
+  </td>
+</tr>  
+
+<tr><td>Yubi OTP:</td><td><input id="otpfield" type="text" name="otp" /></td></tr>
+<tr><td colspan="2"><input type="submit" name="submit" value="submit" /></td></tr>
+</table>
+</form>
+</body>
+</html>
