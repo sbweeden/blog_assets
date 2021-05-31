@@ -24,6 +24,10 @@ There is no self-care management page to view/remove registered keys for a user.
 Configuration
 -------------
 
+Obtain a Yubico API client id and secret from the Yubico website: https://upgrade.yubico.com/getapikey/
+
+Update the mappingrules/YubiOTP.js mapping rule to include your API_CLIENT_ID and API_SECRET_KEY.
+
 Install the provided template pages, mapping rules, and certificates (in the rt_profile_key trust store). The certificates are used for SSL trust to the YubiCloud OTP verification endpoint, and these signers could change over time.
 
 The kjur.js mapping rule should be installed using the mapping rule name "KJUR", since it is imported into the YubiOTP.js mapping rule.
