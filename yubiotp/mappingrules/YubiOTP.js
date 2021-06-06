@@ -305,7 +305,7 @@ function validateYubiOTPValue(otp) {
 	}
 	debugLog("validateYubiOTPValue urlstr: " + urlstr);
 
-	var hr = HttpClient.httpGet(urlstr, null, httpsTrustStore, null, null, null, null);
+	var hr = HttpClientV2.httpGet(urlstr, null, httpsTrustStore, null, null, null, null);
 	if (hr != null) {
 		var code = hr.getCode(); // this is int
 		var rspBody = hr.getBody(); // this is java.lang.String
