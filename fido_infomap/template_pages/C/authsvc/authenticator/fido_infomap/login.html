@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <title>Passkey Login</title>
+
+        <!-- Prevent caching so that during development we can rapidly prototype without having to refresh the page each iteration -->
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
+    
+        <script src = "https://code.jquery.com/jquery-1.11.3.min.js"></script>
+        <script type="text/javascript" src="/sps/static/jsrsasign-all-min.js"></script>
+        <script type="text/javascript" src="/sps/static/fido_infomap_helper.js"></script>
+        <script type="text/javascript" src="/sps/static/fido_infomap_login.js" id="fido_login_tags">
+            {
+                "autofillAssertionOptions": @AUTOFILL_ASSERTION_OPTIONS_JSON@
+            }
+        </script>
+    </head>
+    <body>
+        <h2>Passkey Login</h2>
+        <input type="button" id="passkeyLoginButton" value="Login with a passkey" />
+        <form name="loginForm" id="loginForm" method="POST" action="@ACTION@">
+            <input type="hidden" name="operation" value="verify" />
+            <input type="hidden" name="action" value="processAssertionResponse" />
+            <input type="hidden" id="assertionResponse" name="assertionResponse" value="" />
+        </form>
+    </body>
+</html>

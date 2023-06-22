@@ -1,0 +1,32 @@
+<html>
+    <head>
+        <title>FIDO Registrations</title>
+
+        <!-- Prevent caching so that during development we can rapidly prototype without having to refresh the page each iteration -->
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
+    
+        <script src = "https://code.jquery.com/jquery-1.11.3.min.js"></script>
+        <script type="text/javascript" src="/sps/static/jsrsasign-all-min.js"></script>
+        <script type="text/javascript" src="/sps/static/fido_infomap_helper.js"></script>
+        <script type="text/javascript" src="/sps/static/fido_infomap_registrations.js" id="fido_registrations_tags">
+            {
+                "fidoRegistrations": @FIDO_REGISTRATIONS_JSON@
+            }
+        </script>
+    </head>
+    <body>
+        <h2>Current Registrations</h2>
+        <table border="1">
+            <thead>
+                <tr><th>Friendly Name</th><th>Brand</th><th>Operations</th></tr>
+            </thead>
+            <tbody id="registrations_table_body">
+            </tbody>
+        </table>
+        <p />
+        <input type="button" id="registerButton" value="Register passkey" />
+    </body>
+</html>
