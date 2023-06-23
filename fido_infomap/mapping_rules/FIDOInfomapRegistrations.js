@@ -109,6 +109,12 @@ if (getInfomapUsername() == null) {
                 deleteRegistration(frh, credId);
                 sendJSONResponse(getRegistrations(frh));
             }
+        } else if (action.equals("getRegistrations")) {
+            // get registrations and return as JSON
+            sendJSONResponse({
+                status: 'ok',
+                fidoRegistrations: getRegistrations(frh)
+            });
         } else if (action.equals("getAttestationOptions")) {
             // get options and return as JSON
             let attestationOptionsStr = lfc.attestationOptions(JSON.stringify({

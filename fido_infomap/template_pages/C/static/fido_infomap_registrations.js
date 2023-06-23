@@ -84,8 +84,12 @@ function refreshRegistrations() {
         }
     }).done(function(data, textStatus, jqXHR) {
         if (jqXHR.status == 200) {
-            fidoRegistrations = data;
-            renderRegistrations();
+            if (data.status == 'ok') {
+                fidoRegistrations = data.fidoRegistrations;
+                renderRegistrations();
+            } else {
+                showError(JSON.stringify(data));
+            }
         } else {
             console.log("Unexpected HTTP response code in refreshRegistrations: " + jqXHR.status);
         }
