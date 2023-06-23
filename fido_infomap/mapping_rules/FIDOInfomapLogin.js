@@ -1,9 +1,6 @@
 importClass(Packages.com.tivoli.am.fim.trustserver.sts.utilities.IDMappingExtUtils);
-importMappingRule("FIDOInfomapConfig");
+importMappingRule("FIDOInfomapUtils");
 
-function debugLog(s) {
-    IDMappingExtUtils.traceString(s);
-}
 
 function sendJSONResponse(jObj) {
     page.setValue("/authsvc/authenticator/fido_infomap/jsonresponse.html");
@@ -29,8 +26,6 @@ function jsToJavaArray(jsArray) {
  * Main body starts here
  */
 var result = false;
-var lfc = fido2ClientManager.getClient(RPID);
-var responseProcessed = false;
 var loginErrorStr = null;
    
 // figure out what we are doing for this invocation

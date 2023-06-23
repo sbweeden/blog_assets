@@ -1,7 +1,7 @@
 importClass(Packages.com.tivoli.am.fim.trustserver.sts.utilities.IDMappingExtUtils);
-importClass(Packages.com.ibm.security.access.scimclient.ScimClient);
 importClass(Packages.com.tivoli.am.fim.fido.mediation.FIDO2RegistrationHelper);
 importMappingRule("FIDOInfomapConfig");
+importMappingRule("FIDOInfomapUtils");
 
 function debugLog(s) {
     IDMappingExtUtils.traceString(s);
