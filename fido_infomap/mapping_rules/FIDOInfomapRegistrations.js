@@ -154,6 +154,7 @@ if (getInfomapUsername() == null) {
         page.setValue("/authsvc/authenticator/fido_infomap/registrations.html");
         macros.put("@ESCAPED_FIDO_REGISTRATIONS_JSON@", JSON.stringify({
             status: 'ok',
+            username: getInfomapUsername(),
             fidoRegistrations: getRegistrations(frh)
         }));
     }

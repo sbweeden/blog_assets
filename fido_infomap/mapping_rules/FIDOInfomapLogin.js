@@ -90,6 +90,7 @@ if (!responseProcessed) {
     }));
 
     let loginJSON = {
+        username: getInfomapUsername(),
         autofillAssertionOptions: JSON.parse(''+assertionOptionsStr)
     };
     if (loginErrorStr != null) {

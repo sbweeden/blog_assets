@@ -3,6 +3,7 @@
 
 // read existing registrations JSON from the macro embedded in the registrations.html page
 var registrationsPageJSON = JSON.parse(htmlDecode(document.getElementById('fido_registrations_tags').textContent));
+loginUsername = registrationsPageJSON.username;
 var fidoRegistrations = registrationsPageJSON.fidoRegistrations;
 console.log("fidoRegistrations: " + JSON.stringify(fidoRegistrations));
 
@@ -235,6 +236,9 @@ function registrationsStartup() {
     // perform discovery before we do anything else
     performWebAuthnFeatureDiscovery()
     .then((x) => {
+        // render username
+        renderUsername();
+
         // render feature table
         renderFeatureTable();
 

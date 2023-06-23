@@ -4,7 +4,7 @@
 window.addEventListener("load", loginStartup);
 
 var loginPageJSON = JSON.parse(htmlDecode(document.getElementById('fido_login_tags').textContent));
-
+loginUsername = loginPageJSON.username;
 var autofillAssertionOptions = loginPageJSON.autofillAssertionOptions;
 console.log("autofillAssertionOptions: " + JSON.stringify(autofillAssertionOptions));
 

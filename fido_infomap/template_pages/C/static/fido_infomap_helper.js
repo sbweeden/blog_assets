@@ -2,6 +2,9 @@
 
 // assumes availability of jquery and jsrrsasign libraries as includes before this one
 
+// currently logged in user
+var loginUsername = "";
+
 // couple of global vars for WebAuthn feature discovery - call performWebAuthnFeatureDiscovery (promise-based) to populate
 var isUVPAA = false;
 var isAutofillAvailable = false; 
@@ -41,6 +44,10 @@ function getBaseURL() {
     var baseURL = location.protocol+'//'+locationHostPort;
 
     return baseURL;
+}
+
+function renderUsername() {
+    $('#usernamediv').text(loginUsername);
 }
 
 function renderFeatureTable() {
