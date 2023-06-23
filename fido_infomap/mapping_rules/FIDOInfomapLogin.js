@@ -1,27 +1,6 @@
 importClass(Packages.com.tivoli.am.fim.trustserver.sts.utilities.IDMappingExtUtils);
 importMappingRule("FIDOInfomapUtils");
 
-
-function sendJSONResponse(jObj) {
-    page.setValue("/authsvc/authenticator/fido_infomap/jsonresponse.html");
-    macros.put("@AUTHSVC_JSON_RESPONSE@", JSON.stringify(jObj));
-    responseProcessed = true;
-}
-
-function sendErrorResponse(str) {
-    page.setValue("/authsvc/authenticator/fido_infomap/error.html");
-    macros.put("@ERROR_MSG@", str);
-    responseProcessed = true;
-}
-
-function jsToJavaArray(jsArray) {
-    var javaArray = java.lang.reflect.Array.newInstance(java.lang.String, jsArray.length);
-    for (var i = 0; i < jsArray.length; i++) {
-            javaArray[i] = jsArray[i];
-    }
-    return javaArray;
-}
-
 /*
  * Main body starts here
  */
