@@ -31,6 +31,11 @@ function hideDiv(id) {
     document.getElementById(id).style.display = "none";
 }
 
+function showError(e) {
+    $('#errorDetails').text(e);
+    showDiv('errorDiv');
+}
+
 function getBaseURL() {
     var locationHostPort = location.hostname+(location.port ? ':'+location.port: ''); 
     var baseURL = location.protocol+'//'+locationHostPort;

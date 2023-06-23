@@ -12,9 +12,7 @@
         <script type="text/javascript" src="/sps/static/jsrsasign-all-min.js"></script>
         <script type="text/javascript" src="/sps/static/fido_infomap_helper.js"></script>
         <script type="text/javascript" src="/sps/static/fido_infomap_login.js" id="fido_login_tags">
-            {
-                "autofillAssertionOptions": @AUTOFILL_ASSERTION_OPTIONS_JSON@
-            }
+            @ESCAPED_FIDO_LOGIN_JSON@
         </script>
     </head>
     <body>
@@ -38,5 +36,9 @@
             <input type="hidden" name="action" value="processAssertionResponse" />
             <input type="hidden" id="assertionResponse" name="assertionResponse" value="" />
         </form>
+        <div id="errorDiv" style="display:none">
+            <h2>Error</h2>
+            <div id="errorDetails"></div>
+        </div>
     </body>
 </html>

@@ -31,6 +31,7 @@ function jsToJavaArray(jsArray) {
 var result = false;
 var lfc = fido2ClientManager.getClient(RPID);
 var responseProcessed = false;
+var loginErrorStr = null;
    
 // figure out what we are doing for this invocation
 var action = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter", "action");
@@ -67,6 +68,8 @@ if (action != null) {
                 }
                 result = true;
                 responseProcessed = true;
+            } else {
+                loginErrorStr = JSON.stringify(assertionResult);
             }
             
         } else {
@@ -79,12 +82,20 @@ if (action != null) {
 if (!responseProcessed) {
     // note that we request a longer timeout (24 hours) here for options to be used for
     // autofill because the login page might be idle for ages. Our client uses seconds
-    // but the response will be in milliseconds.
+    // but the response will be in milliseconds as that is what WebAuthn uses. This
+    // ability to specify a custom timeout was added is ISVA 10.0.6.0.
     let assertionOptionsStr = lfc.assertionOptions(JSON.stringify({
         userVerification: "required",
         timeout: 86400
     }));
-    macros.put("@AUTOFILL_ASSERTION_OPTIONS_JSON@", assertionOptionsStr);
+
+    let loginJSON = {
+        autofillAssertionOptions: JSON.parse(''+assertionOptionsStr)
+    };
+    if (loginErrorStr != null) {
+        loginJSON.lastError = loginErrorStr;
+    }
+    macros.put("@ESCAPED_FIDO_LOGIN_JSON@", JSON.stringify(loginJSON));
     page.setValue("/authsvc/authenticator/fido_infomap/login.html");
 }
 

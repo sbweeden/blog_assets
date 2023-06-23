@@ -3,23 +3,53 @@
 // assumes availability of fido_infomap_helper.js and its dependencies before this one
 window.addEventListener("load", loginStartup);
 
-var login_dataSetValues = document.currentScript.dataset;
-console.log("login_dataSetValues: " + JSON.stringify(login_dataSetValues));
+var loginPageJSON = JSON.parse(htmlDecode(document.getElementById('fido_login_tags').textContent));
 
-var loginPageJSON = JSON.parse(document.getElementById('fido_login_tags').textContent);
 var autofillAssertionOptions = loginPageJSON.autofillAssertionOptions;
 console.log("autofillAssertionOptions: " + JSON.stringify(autofillAssertionOptions));
 
 // used for autofill UI
 var abortController;
 var abortSignal;
-var abortTimer;
+var autofillWebAuthnPromise = null;
 
 function getLoginAPIAuthSvcURL() {
     return getBaseURL() + '/mga/sps/apiauthsvc/policy/fido_infomap_login';
 }
 
-function modalLogin() {
+//
+// This function is only declared async because I was experimenting with calling
+// await for the autofillWebAuthnPromise
+//
+async function modalLogin() {
+    hideDiv('errorDiv');
+    if (abortController) {
+        // need to abort the autofill call. 
+        console.log("Aborting the autofill webauthn call");
+        abortController.abort("AbortError");
+
+        // now we really *should* wait for the abort to complete
+        // by calling:
+        //
+        // await autofillWebAuthnPromise;
+        // 
+        // however if you do this on Safari (at least at time of writing)
+        // with Safari 16.5.1, then the browser will complain with
+        // the warning:
+        // User gesture is not detected. To use the WebAuthn API, call 'navigator.credentials.create' or 'navigator.credentials.get' within user activated events.
+        //
+        // and the user gets an ugly warning asking them to allow the modal call to WebAuthn (which they should not get)
+        //
+        // So instead we just completely assume that it's aborted
+        // somewhat synchronously by the OS, and get on with calling
+        // the modal UI. 
+        //
+        // if (autofillWebAuthnPromise) {
+        //     await autofillWebAuthnPromise;
+        //     autofillWebAuthnPromise = null;
+        // }
+    }
+
     kickoffModalLogin();
 }
 
@@ -40,12 +70,16 @@ function kickoffModalLogin() {
         if (jqXHR.status == 200) {
             processAssertionOptionsResponse(data, false);
         } else {
-            console.log("Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status);
+            errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
+            showError(errMsg);
+            console.log(errMsg);
         }
 
     }).fail(function(jqXHR, textStatus, errorThrown) {
-        console.log("Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status);
-    });    
+        errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
+        showError(errMsg);
+        console.log(errMsg);
+});    
 }
 
 function kickoffAutofill() {
@@ -89,7 +123,7 @@ function processAssertionOptionsResponse(options, isAutofill) {
 	console.log("Calling navigator.credentials.get with options: " + JSON.stringify(credGetOptions));
 
 	// call the webauthn API
-	navigator.credentials.get(credGetOptions).then(function (assertion) {
+	let webauthnPromise = navigator.credentials.get(credGetOptions).then(function (assertion) {
 
         // No longer require the abortController if autofill UI was taking place 
 		abortController = null;
@@ -111,8 +145,25 @@ function processAssertionOptionsResponse(options, isAutofill) {
 
         processAssertionResponse(assertionResponseObject);
     }).catch(function (err) {
-        console.log("Error calling navigator.credentials.get: " + err);
+
+        // if this is the autofill call, then this might be perfectly normal since it may have been aborted
+        // as a result of the user pressing the Login with a passkey button 
+        if (abortSignal != null && abortSignal.aborted) {
+            abortController = null;
+            abortSignal = null;
+            console.log("Conditional request aborted");            
+        } else {
+			let errMsg = "processAssertionOptionsResponse failed via catch: " + err;
+            showError(errMsg);
+            console.log(errMsg);
+        }
     });
+
+    if (isAutofill) {
+        // store this, so on conforming browsers we can await it
+        // before starting the modal UI
+        autofillWebAuthnPromise = webauthnPromise;
+    }
 }
 
 function processAssertionResponse(assertionResponseObject) {
@@ -138,6 +189,12 @@ function loginStartup() {
         if (isAutofillAvailable) {
             showDiv('autofillDiv');
             kickoffAutofill();
+        }
+
+        // if there was an error on previous login attempt, show it
+        if (loginPageJSON.lastError != null) {
+            showError(loginPageJSON.lastError);
+            console.log(loginPageJSON.lastError);
         }
     });
 }

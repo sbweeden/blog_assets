@@ -1,14 +1,14 @@
 // set of client-side helper functions for FIDO registrations page
-
 // assumes availability of fido_infomap_helper.js and its dependencies before this one
-window.addEventListener("load", registrationsStartup);
 
-var registrations_dataSetValues = document.currentScript.dataset;
-console.log("registrations_dataSetValues: " + JSON.stringify(registrations_dataSetValues));
-
-var registrationsPageJSON = JSON.parse(document.getElementById('fido_registrations_tags').textContent);
+// read existing registrations JSON from the macro embedded in the registrations.html page
+var registrationsPageJSON = JSON.parse(htmlDecode(document.getElementById('fido_registrations_tags').textContent));
 var fidoRegistrations = registrationsPageJSON.fidoRegistrations;
 console.log("fidoRegistrations: " + JSON.stringify(fidoRegistrations));
+
+// set up an onload function for this page
+window.addEventListener("load", registrationsStartup);
+
 
 function getRegistrationsAPIAuthSvcURL() {
     return getBaseURL() + '/mga/sps/apiauthsvc/policy/fido_infomap_registrations';
@@ -97,6 +97,8 @@ function refreshRegistrations() {
 }
 
 function register() {
+    hideDiv('errorDiv');
+
     // get attestation options
     $.ajax({
         type: "PUT",
@@ -188,7 +190,9 @@ function processAttestationOptionsResponse(options) {
 		}, function(err) {
 			// error - can occur for example if the excludeCredentials list already contains
 			// a credential registered on this device
-			console.log("FIDO2 registration failed: " + err);
+            errorMsg = "FIDO2 registration failed: " + err
+            showError(errorMsg)
+			console.log(errorMsg);
 		}
 	);    
 }
@@ -208,8 +212,12 @@ function processAttestationResponse(attestationResponseObject) {
         }
     }).done(function(data, textStatus, jqXHR) {
         if (jqXHR.status == 200) {
-            fidoRegistrations = data;
-            renderRegistrations();
+            if (data.status == 'ok') {
+                fidoRegistrations = data.fidoRegistrations;
+                renderRegistrations();
+            } else {
+                showError(JSON.stringify(data));
+            }
         } else {
             console.log("Unexpected HTTP response code in processAttestationResponse: " + jqXHR.status);
         }

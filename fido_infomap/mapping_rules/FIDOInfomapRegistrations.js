@@ -127,18 +127,29 @@ if (getInfomapUsername() == null) {
             if (attestationResponseStr != null) {
                 let attestationResultStr = lfc.attestationResult(attestationResponseStr);
                 debugLog("attestationResultStr: " + attestationResultStr);
+                let attestationResult = JSON.parse(''+attestationResultStr);
+                if (attestationResult.status == 'ok') {
+                    sendJSONResponse({
+                        status: 'ok',
+                        fidoRegistrations: getRegistrations(frh)
+                    });
+                } else {
+                    sendJSONResponse(attestationResult);
+                }
             } else {
                 debugLog("processAttestationResponse action did not contain attestationResponse");
             }
-            sendJSONResponse(getRegistrations(frh));
+            
         }
     } 
 
     // default action is to populate the registrations page
     if (!responseProcessed) {
-        let registrations = getRegistrations(frh);
         page.setValue("/authsvc/authenticator/fido_infomap/registrations.html");
-        macros.put("@FIDO_REGISTRATIONS_JSON@", JSON.stringify(registrations));
+        macros.put("@ESCAPED_FIDO_REGISTRATIONS_JSON@", JSON.stringify({
+            status: 'ok',
+            fidoRegistrations: getRegistrations(frh)
+        }));
     }
 }
 
