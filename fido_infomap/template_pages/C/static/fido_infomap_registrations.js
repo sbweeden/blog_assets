@@ -220,9 +220,16 @@ function processAttestationResponse(attestationResponseObject) {
 }
 
 function registrationsStartup() {
-    // set up a handler for the register button
-    $('#registerButton').click(() => { register(); });
+    // perform discovery before we do anything else
+    performWebAuthnFeatureDiscovery()
+    .then((x) => {
+        // render feature table
+        renderFeatureTable();
 
-    // populate registrations table
-    renderRegistrations();
+        // set up a handler for the register button
+        $('#registerButton').click(() => { register(); });
+
+        // populate registrations table
+        renderRegistrations();
+    });
 }

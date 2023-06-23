@@ -18,7 +18,20 @@
         </script>
     </head>
     <body>
-        <h2>Passkey Login</h2>
+        <h2>WebAuthn Feature Discovery</h2>
+        <table border="1">
+            <thead>
+                <tr><th>Feature</th><th>Value</th></tr>
+            </thead>
+            <tbody id="webauthn_feature_table_body">
+            </tbody>
+        </table>
+        <!-- autofill div starts hidden and is only shown (dynamically) if autofill is available as a feature -->
+        <div id="autofillDiv" style="display:none">
+            <h2>Passkey Autofill Login</h2>
+            <input type="text" id="passkeyAutofill" name="username" placeholder="Select passkey" autocomplete="username webauthn" />
+        </div>
+        <h2>Passkey Modal Login</h2>
         <input type="button" id="passkeyLoginButton" value="Login with a passkey" />
         <form name="loginForm" id="loginForm" method="POST" action="@ACTION@">
             <input type="hidden" name="operation" value="verify" />

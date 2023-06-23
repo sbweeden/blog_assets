@@ -10,7 +10,10 @@ var loginPageJSON = JSON.parse(document.getElementById('fido_login_tags').textCo
 var autofillAssertionOptions = loginPageJSON.autofillAssertionOptions;
 console.log("autofillAssertionOptions: " + JSON.stringify(autofillAssertionOptions));
 
-var lastStateId = null;
+// used for autofill UI
+var abortController;
+var abortSignal;
+var abortTimer;
 
 function getLoginAPIAuthSvcURL() {
     return getBaseURL() + '/mga/sps/apiauthsvc/policy/fido_infomap_login';
@@ -35,7 +38,7 @@ function kickoffModalLogin() {
         }
     }).done(function(data, textStatus, jqXHR) {
         if (jqXHR.status == 200) {
-            processAssertionOptionsResponse(data);
+            processAssertionOptionsResponse(data, false);
         } else {
             console.log("Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status);
         }
@@ -45,11 +48,17 @@ function kickoffModalLogin() {
     });    
 }
 
+function kickoffAutofill() {
+    let serverOptions = JSON.parse(JSON.stringify(autofillAssertionOptions));
+
+    processAssertionOptionsResponse(serverOptions, true);
+}
+
 function base64URLEncodeArrayBuffer(ab) {
     return hextob64u(BAtohex(new Uint8Array(ab)));
 }
 
-function processAssertionOptionsResponse(options) {
+function processAssertionOptionsResponse(options, isAutofill) {
     console.log("Received assertion options: " + JSON.stringify(options));
 
     let serverOptions = JSON.parse(JSON.stringify(options));
@@ -67,14 +76,26 @@ function processAssertionOptionsResponse(options) {
         }
     }
 
-    var credGetOptions = { "publicKey": serverOptions };
+    let credGetOptions = { "publicKey": serverOptions };
+
+    if (isAutofill) {
+        // add extra options for autofill
+        abortController = new AbortController();
+        abortSignal = abortController.signal;
+        credGetOptions.signal = abortSignal;
+        credGetOptions.mediation = "conditional";
+    }
+
 	console.log("Calling navigator.credentials.get with options: " + JSON.stringify(credGetOptions));
 
 	// call the webauthn API
 	navigator.credentials.get(credGetOptions).then(function (assertion) {
 
-        console.log("assertion received");
-        var assertionResponseObject = {
+        // No longer require the abortController if autofill UI was taking place 
+		abortController = null;
+
+        // build the JSON assertion response that the server will validate
+        let assertionResponseObject = {
             id: assertion.id,
             rawId: base64URLEncodeArrayBuffer(assertion.rawId),
             response: {
@@ -105,6 +126,18 @@ function processAssertionResponse(assertionResponseObject) {
 }
 
 function loginStartup() {
-    // set up a handler for the register button
-    $('#passkeyLoginButton').click(() => { modalLogin(); });
+    performWebAuthnFeatureDiscovery()
+    .then((x) => {
+        // render feature table
+        renderFeatureTable();
+
+        // set up a handler for the register button
+        $('#passkeyLoginButton').click(() => { modalLogin(); });
+
+        // if autofill is available, kick of the condiitonal mediation flow
+        if (isAutofillAvailable) {
+            showDiv('autofillDiv');
+            kickoffAutofill();
+        }
+    });
 }

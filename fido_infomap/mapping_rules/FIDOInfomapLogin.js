@@ -77,8 +77,12 @@ if (action != null) {
 
 // default action is to show the login page
 if (!responseProcessed) {
+    // note that we request a longer timeout (24 hours) here for options to be used for
+    // autofill because the login page might be idle for ages. Our client uses seconds
+    // but the response will be in milliseconds.
     let assertionOptionsStr = lfc.assertionOptions(JSON.stringify({
-        userVerification: "required"
+        userVerification: "required",
+        timeout: 86400
     }));
     macros.put("@AUTOFILL_ASSERTION_OPTIONS_JSON@", assertionOptionsStr);
     page.setValue("/authsvc/authenticator/fido_infomap/login.html");
