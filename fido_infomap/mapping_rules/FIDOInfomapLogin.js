@@ -14,8 +14,19 @@ var action = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter"
 if (action != null) {
     if (action.equals("getAssertionOptions")) {
         // get options and return as JSON
+        // modal timeout is 2 minutes
         let assertionOptionsStr = lfc.assertionOptions(JSON.stringify({
-            userVerification: "required"
+            userVerification: "required",
+            timeout: (2*60)
+        }));
+        debugLog("assertionOptionsStr: " + assertionOptionsStr);
+        sendJSONResponse(JSON.parse(''+assertionOptionsStr));
+    } else if (action.equals("getAssertionOptionsAutofill")) {
+        // get options and return as JSON
+        // autofill timeout is 30 minutes - this is used to set challenge refresh interval at browser
+        let assertionOptionsStr = lfc.assertionOptions(JSON.stringify({
+            userVerification: "required",
+            timeout: (30*60)
         }));
         debugLog("assertionOptionsStr: " + assertionOptionsStr);
         sendJSONResponse(JSON.parse(''+assertionOptionsStr));
@@ -54,13 +65,18 @@ if (action != null) {
 
 // default action is to show the login page
 if (!responseProcessed) {
-    // note that we request a longer timeout (24 hours) here for options to be used for
-    // autofill because the login page might be idle for ages. Our client uses seconds
-    // but the response will be in milliseconds as that is what WebAuthn uses. This
-    // ability to specify a custom timeout was added is ISVA 10.0.6.0.
+    //
+    // note that we request a longer timeout (30 minutes) here for options to be used for
+    // autofill because the login page might be idle for ages. The page will occassionally
+    // refresh the challenge anyway, but this interrupts any in-progress attempt by the 
+    // user to login, so we do not want to do that very often. 
+    //
+    // Our client uses seconds but the response will be in milliseconds as that is what 
+    // WebAuthn uses. This ability to specify a custom timeout was added is ISVA 10.0.6.0.
+    //
     let assertionOptionsStr = lfc.assertionOptions(JSON.stringify({
         userVerification: "required",
-        timeout: 86400
+        timeout: (30*60)
     }));
 
     let loginJSON = {
