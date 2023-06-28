@@ -34,21 +34,22 @@
             console.log("Aborting the autofill webauthn call");
             abortController.abort("AbortError");
 
-            // now we really *should* wait for the abort to complete
-            // by calling:
             //
-            // await autofillWebAuthnPromise;
-            // 
-            // however if you do this on Safari (at least at time of writing)
-            // with Safari 16.5.1, then the browser will complain with
+            // now we really *should* wait for the abort to complete
+            // however if you do this on Safari (at least at time of writing
+            // with Safari 16.5.1), then the browser will complain with
             // the warning:
             // User gesture is not detected. To use the WebAuthn API, call 'navigator.credentials.create' or 'navigator.credentials.get' within user activated events.
             //
             // and the user gets an ugly warning asking them to allow the modal call to WebAuthn (which they should not get)
             //
+            // see: https://bugs.webkit.org/show_bug.cgi?id=258642
+            //
             // So instead we just completely assume that it's aborted
             // somewhat synchronously by the OS, and get on with calling
-            // the modal UI. 
+            // the modal UI. This seems to work on Chrome and Safari.
+            // If in doubt the code below could be conditionally exercised 
+            // if the UserAgent is *not* Safari.
             //
             // if (autofillWebAuthnPromise) {
             //     await autofillWebAuthnPromise;
