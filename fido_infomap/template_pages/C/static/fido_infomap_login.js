@@ -106,7 +106,8 @@
             }
         }).done(function(data, textStatus, jqXHR) {
             if (jqXHR.status == 200) {
-                restartAutofillWithOptions(data);
+                // restart autofill with the new options - this will setup a new timer also
+                processAssertionOptionsResponse(data, true);
             } else {
                 errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
                 showError(errMsg);
@@ -119,34 +120,11 @@
         });
     }
 
-    async function restartAutofillWithOptions(serverOptions) {
-        // abort any existing autofill call, then restart
-        if (abortController) {
-            console.log("Aborting the autofill webauthn call to restart");
-            abortController.abort("AbortError");
-
-            // wait for the abort to complete 
-            if (autofillWebAuthnPromise) {
-                console.log("Waiting for existing autofill to abort");
-                await autofillWebAuthnPromise;
-                autofillWebAuthnPromise = null;
-            }
-        }
-        // restart autofill with the new options - this will setup a new timer also
-        processAssertionOptionsResponse(serverOptions, true);
-    }
-
-    function kickoffAutofill() {
-        let serverOptions = JSON.parse(JSON.stringify(autofillAssertionOptions));
-
-        processAssertionOptionsResponse(serverOptions, true);
-    }
-
     function base64URLEncodeArrayBuffer(ab) {
         return hextob64u(BAtohex(new Uint8Array(ab)));
     }
 
-    function processAssertionOptionsResponse(options, isAutofill) {
+    async function processAssertionOptionsResponse(options, isAutofill) {
         console.log("Received assertion options: " + JSON.stringify(options));
 
         let serverOptions = JSON.parse(JSON.stringify(options));
@@ -167,6 +145,25 @@
         let credGetOptions = { "publicKey": serverOptions };
 
         if (isAutofill) {
+            // if there is an existing autofill in progress, abort it here
+            if (abortController) {
+                console.log("Aborting existing autofill webauthn call to restart");
+                abortController.abort("AbortError");
+
+                //
+                // wait for the abort to complete 
+                // its ok to wait for this, even on Safari, since the user gesture 
+                // bug does not affect autofill calls to webauthn
+                //
+                if (autofillWebAuthnPromise) {
+                    console.log("Waiting for existing autofill to abort");
+                    await autofillWebAuthnPromise;
+                    console.log("Finished waiting for existing autofill to abort");
+                    autofillWebAuthnPromise = null;
+                }
+                abortController = null;
+            }
+
             // add extra options for autofill
             abortController = new AbortController();
             abortSignal = abortController.signal;
@@ -211,6 +208,12 @@
                 showError(errMsg);
                 console.log(errMsg);
             }
+
+            // if the modal was aborted, resume autofill if supported
+            if (!isAutofill && isAutofillAvailable) {
+                console.log("calling kickoffAutofill from within catch handler of modal webauthn");
+                refreshAutofill();
+            }
         });
 
         if (isAutofill) {
@@ -252,7 +255,7 @@
             // if autofill is available, kick of the condiitonal mediation flow
             if (isAutofillAvailable) {
                 showDiv('autofillDiv');
-                kickoffAutofill();
+                processAssertionOptionsResponse(JSON.parse(JSON.stringify(autofillAssertionOptions)), true);
             }
 
             // if there was an error on previous login attempt, show it
