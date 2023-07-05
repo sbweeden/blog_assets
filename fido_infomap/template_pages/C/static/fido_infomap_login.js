@@ -144,23 +144,6 @@
     async function processAssertionOptionsResponse(options, isAutofill) {
         console.log("Received assertion options: " + JSON.stringify(options));
 
-        let serverOptions = JSON.parse(JSON.stringify(options));
-
-        // remove the status and errorMessage keys
-        delete serverOptions["status"];
-        delete serverOptions["errorMessage"];
-
-        // massage some of the b64u fields into the required ArrayBuffer types
-        serverOptions.challenge = new Uint8Array(b64toBA(b64utob64(serverOptions.challenge)));
-
-        if (serverOptions.allowCredentials) {
-            for (let i = 0; i < serverOptions.allowCredentials.length; i++) {
-                serverOptions.allowCredentials[i].id = new Uint8Array(b64toBA(b64utob64(serverOptions.allowCredentials[i].id)));
-            }
-        }
-
-        let credGetOptions = { "publicKey": serverOptions };
-
         // if there is an existing autofill in progress, abort it here
         if (abortController != null) {
             console.log("Aborting existing autofill webauthn call");
@@ -183,7 +166,7 @@
             // somewhat synchronously by the OS, and get on with calling
             // the modal UI. This seems to work on Chrome and Safari.
             // 
-            // When the bug is fixed, removed " && isAutofill" from condition below
+            // When the bug is fixed, remove " && isAutofill" from condition below
             // and also the abortSignal.aborted would then be the only check necessary
             // in the catch block of the webauthn call below.
             //
@@ -196,6 +179,24 @@
 
             cleanupAutofillControls();
         }
+        
+        // prepare webauthn input
+        let serverOptions = JSON.parse(JSON.stringify(options));
+
+        // remove any status and errorMessage keys
+        delete serverOptions["status"];
+        delete serverOptions["errorMessage"];
+
+        // massage some of the b64u fields into the required ArrayBuffer types
+        serverOptions.challenge = new Uint8Array(b64toBA(b64utob64(serverOptions.challenge)));
+
+        if (serverOptions.allowCredentials) {
+            for (let i = 0; i < serverOptions.allowCredentials.length; i++) {
+                serverOptions.allowCredentials[i].id = new Uint8Array(b64toBA(b64utob64(serverOptions.allowCredentials[i].id)));
+            }
+        }
+
+        let credGetOptions = { "publicKey": serverOptions };
 
         if (isAutofill) {
             // add extra options for new autofill call
@@ -209,7 +210,8 @@
 
         // call the webauthn API
         let webauthnPromise = navigator.credentials.get(credGetOptions).then(function (assertion) {
-
+            
+            // on successful assertion we don't need any of these any more
             cleanupAutofillControls();
 
             // build the JSON assertion response that the server will validate
