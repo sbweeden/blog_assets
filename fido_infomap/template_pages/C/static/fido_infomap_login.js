@@ -23,7 +23,9 @@
     // await for the autofillWebAuthnPromise
     //
     async function modalLogin() {
+        /*
         hideDiv('errorDiv');
+
         if (abortController) {
             // need to abort the autofill call and any refresh timer. 
             if (autofillRefreshTimer != null) {
@@ -56,11 +58,13 @@
             //     autofillWebAuthnPromise = null;
             // }
         }
-
+        */
         kickoffModalLogin();
     }
 
     function kickoffModalLogin() {
+        hideDiv('errorDiv');
+
         // get fresh assertion options
         $.ajax({
             type: "PUT",
@@ -109,12 +113,12 @@
                 // restart autofill with the new options - this will setup a new timer also
                 processAssertionOptionsResponse(data, true);
             } else {
-                errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
+                errMsg = "Unexpected HTTP response code in refreshAutofill: " + jqXHR.status;
                 showError(errMsg);
                 console.log(errMsg);
             }
         }).fail(function(jqXHR, textStatus, errorThrown) {
-            errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
+            errMsg = "Unexpected HTTP response code in refreshAutofill: " + jqXHR.status;
             showError(errMsg);
             console.log(errMsg);
         });
@@ -157,27 +161,44 @@
 
         let credGetOptions = { "publicKey": serverOptions };
 
-        if (isAutofill) {
-            // if there is an existing autofill in progress, abort it here
-            if (abortController) {
-                console.log("Aborting existing autofill webauthn call to restart");
-                abortController.abort("AbortError");
+        // if there is an existing autofill in progress, abort it here
+        if (abortController != null) {
+            console.log("Aborting existing autofill webauthn call");
+            abortController.abort("AbortError");
 
-                //
-                // wait for the abort to complete 
-                // its ok to wait for this, even on Safari, since the user gesture 
-                // bug does not affect autofill calls to webauthn
-                //
-                if (autofillWebAuthnPromise) {
-                    console.log("Waiting for existing autofill to abort");
-                    await autofillWebAuthnPromise;
-                    console.log("Finished waiting for existing autofill to abort");
-                    autofillWebAuthnPromise = null;
-                }
-                cleanupAutofillControls();
+
+            //
+            // now we really *should* wait for the abort to complete in all cases when aborting
+            // however if you do this on Safari (at least at time of writing
+            // with Safari 16.5.1) when your are about to start a modal flow, 
+            // then the browser will complain with the warning:
+            //
+            // User gesture is not detected. To use the WebAuthn API, call 'navigator.credentials.create' or 'navigator.credentials.get' within user activated events.
+            //
+            // and the user gets an ugly warning asking them to allow the modal call to WebAuthn (which they should not get)
+            //
+            // see: https://bugs.webkit.org/show_bug.cgi?id=258642
+            //
+            // So instead, in that case, we just completely assume that it's aborted
+            // somewhat synchronously by the OS, and get on with calling
+            // the modal UI. This seems to work on Chrome and Safari.
+            // 
+            // When the bug is fixed, removed " && isAutofill" from condition below
+            // and also the abortSignal.aborted would then be the only check necessary
+            // in the catch block of the webauthn call below.
+            //
+            if (autofillWebAuthnPromise && isAutofill) {
+                console.log("Waiting for existing autofill to abort");
+                 await autofillWebAuthnPromise;
+                 console.log("Finished waiting for existing autofill to abort");
+                 autofillWebAuthnPromise = null;
             }
 
-            // add extra options for autofill
+            cleanupAutofillControls();
+        }
+
+        if (isAutofill) {
+            // add extra options for new autofill call
             abortController = new AbortController();
             abortSignal = abortController.signal;
             credGetOptions.signal = abortSignal;
@@ -211,7 +232,14 @@
 
             // if this is the autofill call, then this might be perfectly normal since it may have been aborted
             // as a result of the user pressing the Login with a passkey button 
-            if (abortSignal != null && abortSignal.aborted) {
+            // abortSignal might be null because we don't await the promise to finish in modal case due to Safari bug, 
+            // so also check if the string version of err starts with "AbortError" as an alternative for checking if we have been aborted
+            // Chrome and Safari behave quite differently here. In Chrome, err is a string, and in Safari it's an object.
+            // In both cases, if we look at the string version of err, it starts with "AbortError", so that's the check.
+
+            //console.log("catch block: err: " + err + " typeof(err): " + typeof(err) + " isAutofill: " + isAutofill + " abortSignal: " + abortSignal + " abortSignal.aborted: " + (abortSignal != null ? abortSignal.aborted : "null"));
+
+            if ((abortSignal != null && abortSignal.aborted) || (err != null && (''+err).indexOf("AbortError") == 0)) {
                 console.log("Autofill request aborted");            
                 cleanupAutofillControls();
             } else {
