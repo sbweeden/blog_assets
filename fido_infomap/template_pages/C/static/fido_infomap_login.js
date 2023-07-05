@@ -210,7 +210,7 @@
 
         // call the webauthn API
         let webauthnPromise = navigator.credentials.get(credGetOptions).then(function (assertion) {
-            
+
             // on successful assertion we don't need any of these any more
             cleanupAutofillControls();
 
@@ -242,7 +242,7 @@
             //console.log("catch block: err: " + err + " typeof(err): " + typeof(err) + " isAutofill: " + isAutofill + " abortSignal: " + abortSignal + " abortSignal.aborted: " + (abortSignal != null ? abortSignal.aborted : "null"));
 
             if ((abortSignal != null && abortSignal.aborted) || (err != null && (''+err).indexOf("AbortError") == 0)) {
-                console.log("Autofill request aborted");            
+                console.log("Autofill request aborted");
                 cleanupAutofillControls();
             } else {
                 let errMsg = "processAssertionOptionsResponse failed via catch: " + err;
