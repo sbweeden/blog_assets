@@ -9,8 +9,8 @@
     console.log("autofillAssertionOptions: " + JSON.stringify(autofillAssertionOptions));
 
     // used for autofill UI
-    var abortController;
-    var abortSignal;
+    var abortController = null;
+    var abortSignal = null;
     var autofillWebAuthnPromise = null;
     var autofillRefreshTimer = null;
 
@@ -120,6 +120,19 @@
         });
     }
 
+    function cleanupAutofillControls() {
+        abortController = null;
+        abortSignal = null;
+        // if there is an autofill refresh challenge timer active, stop it
+        if (autofillRefreshTimer != null) {
+            console.log("Canceling autofill refresh timer");
+            window.clearTimeout(autofillRefreshTimer);
+            autofillRefreshTimer = null;
+        }
+        autofillWebAuthnPromise = null;
+    }
+
+
     function base64URLEncodeArrayBuffer(ab) {
         return hextob64u(BAtohex(new Uint8Array(ab)));
     }
@@ -161,7 +174,7 @@
                     console.log("Finished waiting for existing autofill to abort");
                     autofillWebAuthnPromise = null;
                 }
-                abortController = null;
+                cleanupAutofillControls();
             }
 
             // add extra options for autofill
@@ -176,8 +189,7 @@
         // call the webauthn API
         let webauthnPromise = navigator.credentials.get(credGetOptions).then(function (assertion) {
 
-            // No longer require the abortController if autofill UI was taking place 
-            abortController = null;
+            cleanupAutofillControls();
 
             // build the JSON assertion response that the server will validate
             let assertionResponseObject = {
@@ -200,9 +212,8 @@
             // if this is the autofill call, then this might be perfectly normal since it may have been aborted
             // as a result of the user pressing the Login with a passkey button 
             if (abortSignal != null && abortSignal.aborted) {
-                abortController = null;
-                abortSignal = null;
-                console.log("Conditional request aborted");            
+                console.log("Autofill request aborted");            
+                cleanupAutofillControls();
             } else {
                 let errMsg = "processAssertionOptionsResponse failed via catch: " + err;
                 showError(errMsg);
