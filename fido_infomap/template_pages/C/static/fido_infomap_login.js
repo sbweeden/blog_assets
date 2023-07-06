@@ -140,7 +140,7 @@
         return hextob64u(BAtohex(new Uint8Array(ab)));
     }
 
-    async function processAssertionOptionsResponse(options, isAutofill) {
+    function processAssertionOptionsResponse(options, isAutofill) {
         console.log("Received assertion options: " + JSON.stringify(options));
 
         // if there is an existing autofill in progress, abort it here
@@ -203,7 +203,7 @@
             // abortSignal might be null because we don't await the promise to finish in modal case due to Safari bug, 
             // so also check if the err is an Error with name "AbortError" as an alternative for checking if we have been aborted.
             //
-            console.log("catch block: err: " + err + " typeof(err): " + typeof(err) + " isAutofill: " + isAutofill + " abortSignal: " + abortSignal + " abortSignal.aborted: " + (abortSignal != null ? abortSignal.aborted : "null") + " err.name: " + ((err != null && err.name != null) ? err.name : "null") );
+            //console.log("catch block: err: " + err + " typeof(err): " + typeof(err) + " isAutofill: " + isAutofill + " abortSignal: " + abortSignal + " abortSignal.aborted: " + (abortSignal != null ? abortSignal.aborted : "null") + " err.name: " + ((err != null && err.name != null) ? err.name : "null") );
 
             if ((abortSignal != null && abortSignal.aborted) || (err != null && err.name != null && err.name == "AbortError")) {
                 console.log("Autofill request aborted");
