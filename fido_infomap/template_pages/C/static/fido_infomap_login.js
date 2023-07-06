@@ -140,11 +140,12 @@
         return hextob64u(BAtohex(new Uint8Array(ab)));
     }
 
-    function processAssertionOptionsResponse(options, isAutofill) {
+    async function processAssertionOptionsResponse(options, isAutofill) {
         console.log("Received assertion options: " + JSON.stringify(options));
 
         // if there is an existing autofill in progress, abort it here
-        abortAutofillIfRunning(isAutofill);
+        // and wait for that to complete before proceeding
+        await abortAutofillIfRunning(isAutofill);
         
         // prepare webauthn input
         let serverOptions = JSON.parse(JSON.stringify(options));
