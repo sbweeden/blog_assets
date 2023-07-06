@@ -18,51 +18,8 @@
         return getBaseURL() + '/mga/sps/apiauthsvc/policy/fido_infomap_login';
     }
 
-    //
-    // This function is only declared async because I was experimenting with calling
-    // await for the autofillWebAuthnPromise
-    //
-    async function modalLogin() {
-        /*
-        hideDiv('errorDiv');
 
-        if (abortController) {
-            // need to abort the autofill call and any refresh timer. 
-            if (autofillRefreshTimer != null) {
-                console.log("Canceling autofill refresh timer");
-                window.clearTimeout(autofillRefreshTimer);
-                autofillRefreshTimer = null;
-            }
-            console.log("Aborting the autofill webauthn call");
-            abortController.abort("AbortError");
-
-            //
-            // now we really *should* wait for the abort to complete
-            // however if you do this on Safari (at least at time of writing
-            // with Safari 16.5.1), then the browser will complain with
-            // the warning:
-            // User gesture is not detected. To use the WebAuthn API, call 'navigator.credentials.create' or 'navigator.credentials.get' within user activated events.
-            //
-            // and the user gets an ugly warning asking them to allow the modal call to WebAuthn (which they should not get)
-            //
-            // see: https://bugs.webkit.org/show_bug.cgi?id=258642
-            //
-            // So instead we just completely assume that it's aborted
-            // somewhat synchronously by the OS, and get on with calling
-            // the modal UI. This seems to work on Chrome and Safari.
-            // If in doubt the code below could be conditionally exercised 
-            // if the UserAgent is *not* Safari.
-            //
-            // if (autofillWebAuthnPromise) {
-            //     await autofillWebAuthnPromise;
-            //     autofillWebAuthnPromise = null;
-            // }
-        }
-        */
-        kickoffModalLogin();
-    }
-
-    function kickoffModalLogin() {
+    function modalLogin() {
         hideDiv('errorDiv');
 
         // get fresh assertion options
@@ -81,13 +38,13 @@
             if (jqXHR.status == 200) {
                 processAssertionOptionsResponse(data, false);
             } else {
-                errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
+                errMsg = "Unexpected HTTP response code in modalLogin: " + jqXHR.status;
                 showError(errMsg);
                 console.log(errMsg);
             }
 
         }).fail(function(jqXHR, textStatus, errorThrown) {
-            errMsg = "Unexpected HTTP response code in kickoffModalLogin: " + jqXHR.status;
+            errMsg = "Unexpected HTTP response code in modalLogin: " + jqXHR.status;
             showError(errMsg);
             console.log(errMsg);
         });
@@ -136,19 +93,17 @@
         autofillWebAuthnPromise = null;
     }
 
-
-    function base64URLEncodeArrayBuffer(ab) {
-        return hextob64u(BAtohex(new Uint8Array(ab)));
-    }
-
-    async function processAssertionOptionsResponse(options, isAutofill) {
-        console.log("Received assertion options: " + JSON.stringify(options));
-
-        // if there is an existing autofill in progress, abort it here
+    async function abortAutofillIfRunning(shouldWait) {
+        //
+        // If autofill is active, abort it. 
+        // Note use of the Error class - this is needed to get consistent
+        // behaviour in the parameter passed to the catch() block of navigator.credentials.get
+        //
         if (abortController != null) {
             console.log("Aborting existing autofill webauthn call");
-            abortController.abort("AbortError");
-
+            let abortError = new Error('Aborting existing autofill webauthn call');
+            abortError.name = 'AbortError';
+            abortController.abort(abortError);
 
             //
             // now we really *should* wait for the abort to complete in all cases when aborting
@@ -163,22 +118,33 @@
             // see: https://bugs.webkit.org/show_bug.cgi?id=258642
             //
             // So instead, in that case, we just completely assume that it's aborted
-            // somewhat synchronously by the OS, and get on with calling
-            // the modal UI. This seems to work on Chrome and Safari.
+            // somewhat synchronously by the OS. This seems to work on Chrome and Safari.
             // 
-            // When the bug is fixed, remove " && isAutofill" from condition below
+            // When the bug is fixed, remove " && shouldWait" from condition below
             // and also the abortSignal.aborted would then be the only check necessary
             // in the catch block of the webauthn call below.
             //
-            if (autofillWebAuthnPromise && isAutofill) {
+            if (autofillWebAuthnPromise && shouldWait) {
                 console.log("Waiting for existing autofill to abort");
-                 await autofillWebAuthnPromise;
-                 console.log("Finished waiting for existing autofill to abort");
-                 autofillWebAuthnPromise = null;
+                await autofillWebAuthnPromise;
+                console.log("Finished waiting for existing autofill to abort");
+                autofillWebAuthnPromise = null;
             }
 
+            // regardless of whether we waited or not, clean up all the autofill control variables
             cleanupAutofillControls();
         }
+    }
+
+    function base64URLEncodeArrayBuffer(ab) {
+        return hextob64u(BAtohex(new Uint8Array(ab)));
+    }
+
+    async function processAssertionOptionsResponse(options, isAutofill) {
+        console.log("Received assertion options: " + JSON.stringify(options));
+
+        // if there is an existing autofill in progress, abort it here
+        abortAutofillIfRunning(isAutofill);
         
         // prepare webauthn input
         let serverOptions = JSON.parse(JSON.stringify(options));
@@ -231,17 +197,15 @@
 
             processAssertionResponse(assertionResponseObject);
         }).catch(function (err) {
-
+            //
             // if this is the autofill call, then this might be perfectly normal since it may have been aborted
             // as a result of the user pressing the Login with a passkey button 
             // abortSignal might be null because we don't await the promise to finish in modal case due to Safari bug, 
-            // so also check if the string version of err starts with "AbortError" as an alternative for checking if we have been aborted
-            // Chrome and Safari behave quite differently here. In Chrome, err is a string, and in Safari it's an object.
-            // In both cases, if we look at the string version of err, it starts with "AbortError", so that's the check.
+            // so also check if the err is an Error with name "AbortError" as an alternative for checking if we have been aborted.
+            //
+            console.log("catch block: err: " + err + " typeof(err): " + typeof(err) + " isAutofill: " + isAutofill + " abortSignal: " + abortSignal + " abortSignal.aborted: " + (abortSignal != null ? abortSignal.aborted : "null") + " err.name: " + ((err != null && err.name != null) ? err.name : "null") );
 
-            //console.log("catch block: err: " + err + " typeof(err): " + typeof(err) + " isAutofill: " + isAutofill + " abortSignal: " + abortSignal + " abortSignal.aborted: " + (abortSignal != null ? abortSignal.aborted : "null"));
-
-            if ((abortSignal != null && abortSignal.aborted) || (err != null && (''+err).indexOf("AbortError") == 0)) {
+            if ((abortSignal != null && abortSignal.aborted) || (err != null && err.name != null && err.name == "AbortError")) {
                 console.log("Autofill request aborted");
                 cleanupAutofillControls();
             } else {
