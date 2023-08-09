@@ -31,7 +31,7 @@ The following subsections contain some more guidance on two of the most common u
 
 ### Parsing iv-creds in server-side template page scripting
 
-For background on ISVA server-side template page scripting, see: https://www.ibm.com/docs/en/sva/10.0.6?topic=files-template-file-scripting
+For background on ISVA server-side template page scripting, see: [https://www.ibm.com/docs/en/sva/10.0.6?topic=files-template-file-scripting](https://www.ibm.com/docs/en/sva/10.0.6?topic=files-template-file-scripting)
 
 You can use the credential parser from within template files that have access to request HTTP headers, in the following manner:
 
@@ -56,7 +56,7 @@ You can use the credential parser from within template files that have access to
 ### Parsing iv-creds in an InfoMap authentication mechanism
 
 
-For background on InfoMap authentication mechanisms see: (An Introduction to the InfoMap Authentication Mechanism)[https://community.ibm.com/community/user/security/blogs/shane-weeden1/2016/11/29/an-introduction-to-the-infomap-authentication-mech]
+For background on InfoMap authentication mechanisms see: [An Introduction to the InfoMap Authentication Mechanism](https://community.ibm.com/community/user/security/blogs/shane-weeden1/2016/11/29/an-introduction-to-the-infomap-authentication-mech)
 
 To use the credential parser from within an InfoMap:
 ```
