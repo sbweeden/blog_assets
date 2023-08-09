@@ -1,0 +1,38 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Pragma" content="no-cache">
+<script type="text/javascript" src="../mappingrules/asn1tools.js"></script>
+<script type="text/javascript" src="../mappingrules/credparser.js"></script>
+<script type="text/javascript" src="epac.js"></script>
+<title>Credential Viewer</title>
+</head>
+<body style="margin-left:16px; font-family:IBM Plex Sans, Helvetica Neue for IBM, Helvetica Neue;">
+  <h1 style="font-weight:300; font-size:28px">Credential Viewer</h1>
+
+  <div id="credsDiv" style="display:none">
+    <h2 style="font-weight: 400; font-size: 18px; margin-bottom: 10px">Username: <div id="usernameDiv" style="display:inline-block"></div></h2>
+    <table style="font-size: 14px; border:none; border-collapse:collapse">
+      <thead>
+        <tr style="height:40px">
+          <th style="width:8px; padding:0px; border:none"></th>
+          <th style="width: 180px; font-weight:normal; text-align:left; border:none">Attribute Name</th>
+          <th style="width: 180px; font-weight:normal; text-align:left; border:none">Attribute Value(s)</th>
+        </tr>
+      </thead>
+      <tbody id="credTableBody">
+      </tbody>
+    </table>
+  </div>
+
+  <div id="errorDiv" style="display:none"></div>
+
+<br /><br />
+<form method="post">
+    <!--  The default value here is an unauthenticated PAC included just for an example -->
+	EPAC:&nbsp;<input type="text" name="epac" id="epac" value="Version=1, BAKs3DCCA70MADCCA7cwggOzAgIQBgIBADCCA6gwggOkMC8MGEFaTl9DUkVEX0FVVEhfRVBPQ0hfVElNRTATMBECAQQMCjE2OTExMzU3ODAEADCBlwwVQVpOX0NSRURfQlJPV1NFUl9JTkZPMH4wfAIBBAx1TW96aWxsYS81LjAgKE1hY2ludG9zaDsgSW50ZWwgTWFjIE9TIFggMTBfMTVfNykgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzExNS4wLjAuMCBTYWZhcmkvNTM3LjM2BAAwJgwSQVpOX0NSRURfSVBfRkFNSUxZMBAwDgIBBAwHQUZfSU5FVAQAMCsMEEFaTl9DUkVEX01FQ0hfSUQwFzAVAgEEDA5JVl9VTkFVVEhfVjMuMAQAMDMMHEFaTl9DUkVEX05FVFdPUktfQUREUkVTU19CSU4wEzARAgEEDAoweGMwYTgwMTc2BAAwNgwcQVpOX0NSRURfTkVUV09SS19BRERSRVNTX1NUUjAWMBQCAQQMDTE5Mi4xNjguMS4xMTgEADAtDBlBWk5fQ1JFRF9QUklOQ0lQQUxfRE9NQUlOMBAwDgIBBAwHRGVmYXVsdAQAMDMMF0FaTl9DUkVEX1BSSU5DSVBBTF9OQU1FMBgwFgIBBAwPdW5hdXRoZW50aWNhdGVkBAAwLQwRQVpOX0NSRURfUU9QX0lORk8wGDAWAgEEDA9TU0s6IFRMU1YxMjogMkYEADAuDBJBWk5fQ1JFRF9VU0VSX0lORk8wGDAWAgEEDA91bmF1dGhlbnRpY2F0ZWQEADAnDBBBWk5fQ1JFRF9WRVJTSU9OMBMwEQIBBAwKMHgwMDAwMTAwNgQAMDQMGHRhZ3ZhbHVlX2xvZ2luX3VzZXJfbmFtZTAYMBYCAQQMD3VuYXV0aGVudGljYXRlZAQAMEcMFnRhZ3ZhbHVlX3Nlc3Npb25faW5kZXgwLTArAgEEDCQ2NjJiNDZiZS0zMjljLTExZWUtODA1YS0wMDBjMjk2YzI5ZDUEADCBqQwYdGFndmFsdWVfdXNlcl9zZXNzaW9uX2lkMIGMMIGJAgEEDIGBYkc5allXeG9iM04wTFdSbFptRjFiSFFBX1pNeXZKQUFBQUFJQUFBQXdKSy9NWkFpRkFreUhmd0FBVWxVelV6UTFkbEpTWjNoUVZWWlJNWEpDTUZKaFRuQXRWSFZ1WmxSMGJXeHpPR3c1UzA0NU5GRkpXVzVhWjBaVjpkZWZhdWx0BAA=" /> <br /><br /> 
+	<input type="button" id="displayEPACButton" value="Display EPAC"></input>
+</form>
+
+</body>
+</html>
