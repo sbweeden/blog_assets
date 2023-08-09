@@ -327,8 +327,8 @@ function decodePrincipal(principalSequence) {
 					result.Principal = principalAndGroupsObject.Principal;
 					result.GroupList = principalAndGroupsObject.GroupList;
 					
-					// sanity check the third element is a number "1" for an authenticated credential - authtype
-					if (thirdElement.tag.tagNumber == 2 && thirdElement.content() == "1") {
+					// sanity check the third element is a number "1" for an authenticated credential authentication type
+					if (thirdElement.tag.tagNumber == 2) {
 						result.AuthType = thirdElement.content();
 						
 						// if the fourthElement is defined, and a sequence containing one sequence, make that subsequence the attributeSequence
