@@ -55,9 +55,10 @@ function credParserDebug(s) {
 // unpacks the elements of a UUID in a PAC and constructs the UUID string
 // corresponds to the struct uuid_t
 //
-function parseUUID(uuidSequence) {
+function decodeUUID(uuidSequence) {
 	let result = null;
 	if (uuidSequence != null && uuidSequence.tag != null && uuidSequence.tag.tagNumber == 16 && uuidSequence.sub.length == 6) {
+		//
 		// extract integer parts of the UUID as bytes and convert to hex strings, taking into account that the first integer should be 8 hex chars
 		// the second should be 4 chars, the third should be 4 chars, and the 4th and 5th are two chars
 		// note that for gi4Hex and gi5Hex we expect these to be two hex chars so slice to that
@@ -83,7 +84,7 @@ function parseUUID(uuidSequence) {
 		// including converting the octect string portion to hex
 		result = gi1HexStr + "-" + gi2HexStr + "-" + gi3HexStr + "-" + gi4HexStr + gi5HexStr + "-" + octetHexStr;
 	} else {
-		credParserDebug("parseUUID: Invalid uuidSequence");
+		credParserDebug("decodeUUID: Invalid uuidSequence");
 	}
 	return result;
 }
@@ -93,18 +94,18 @@ function parseUUID(uuidSequence) {
 // it contains the UUID and an optional string name 
 // corresponds to the struct sec_id_t
 //
-function parseSecId(nameAndUUIDSequence) {
+function decodeSecId(nameAndUUIDSequence) {
 	let result = null;
 	
 	// principals and groups look like this - a sequence with one or two elements - the first is a UUID sequence, and then if present, a UTF8String for the name
 	if (nameAndUUIDSequence.sub.length == 1 || nameAndUUIDSequence.sub.length == 2) {
-		let uuid = parseUUID(nameAndUUIDSequence.sub[0]);
+		let uuid = decodeUUID(nameAndUUIDSequence.sub[0]);
 
 		let name = null;
 		if (nameAndUUIDSequence.sub.length == 2 && nameAndUUIDSequence.sub[1] != null && nameAndUUIDSequence.sub[1].tag != null && nameAndUUIDSequence.sub[1].tag.tagNumber == 12) {
 			name = nameAndUUIDSequence.sub[1].content();
 		} else {
-			credParserDebug("parseSecId: Invalid name in nameAndUUIDSequence");
+			credParserDebug("decodeSecId: Invalid name in nameAndUUIDSequence");
 		}
 		
 		if (uuid != null) {
@@ -116,7 +117,7 @@ function parseSecId(nameAndUUIDSequence) {
 			}
 		}
 	} else {
-		credParserDebug("parseSecId: Invalid nameAndUUIDSequence");
+		credParserDebug("decodeSecId: Invalid nameAndUUIDSequence");
 	}
 	
 	return result; 
@@ -136,7 +137,7 @@ function decodePrivilegeAttributes(principalAndGroupsSequence) {
 		// first the principal
 		credParserDebug("decodePrivilegeAttributes: Parsing principal");
 		let principalSequence = principalAndGroupsSequence.sub[0];
-		let principalObject = parseSecId(principalSequence);
+		let principalObject = decodeSecId(principalSequence);
 		if (principalObject != null) {
 			credParserDebug("principalObject: " + JSON.stringify(principalObject));
 			result.Principal = principalObject;
@@ -148,7 +149,7 @@ function decodePrivilegeAttributes(principalAndGroupsSequence) {
 
 			// this works even if the user is in no groups
 			groupsSequence.sub.forEach((g) => {
-				let groupObject = parseSecId(g);
+				let groupObject = decodeSecId(g);
 					
 				if (groupObject != null) {
 					result.GroupList.push(groupObject);
