@@ -1,5 +1,4 @@
 # imports
-import fileinput
 import base64
 import asn1
 import json
@@ -600,12 +599,3 @@ def decodePACHeader(pacHeader):
         credParserDebug("The PAC header string was not supplied")
 
     return stsuu
-
-
-
-#################################################################
-# Main function starts here - reads iv-creds header from stdin
-#################################################################
-for line in fileinput.input():
-    credJSON = decodePACHeader(line.rstrip())
-    print("credJSON: " + json.dumps(credJSON))
