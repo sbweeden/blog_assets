@@ -452,15 +452,33 @@ function decodePACHeader(pacHeader) {
 	if (pacHeader != null) {
 		stsuu = { Principal: {}, AttributeList: {}, GroupList: [] };
 	
-		// pac is base64 encoded with version prefix, but first 4 bytes are not part of the ASN1 sequence
-		let asn1PAC = ASN1.decode(MyBase64.decode(pacHeader.replace("Version=1, ","")).splice(4));
-		
-		//
-		// decode the prinicpal chain  
-		//
-		let principalChainObject = decodePrincipalChain(asn1PAC);
-		if (principalChainObject != null && principalChainObject.PrincipalList != null && principalChainObject.PrincipalList.length > 0) {
-			stsuu = principalChainObject.PrincipalList[0];
+		// pac is base64 encoded with version prefix, but first 4 bytes are a magic prefix to check, and not part of the credential chain ASN1 sequence
+		try {
+			let credBytes = MyBase64.decode(pacHeader.replace("Version=1, ",""));
+			if (credBytes != null && credBytes.length > 4) {
+				let credPrefix = credBytes.splice(0,4);
+
+				// validate the prefix - historically, this is the four bytes 0x04 (length) 0x02 (version) 0xAC 0xDC (magic value)
+				if (credPrefix != null && credPrefix.length == 4 && credPrefix[0] == 0x04 && credPrefix[1] == 0x02 && credPrefix[2] == 0xAC && credPrefix[3] == 0xDC) {
+					//
+					// decode the prinicpal chain  
+					//
+					let asn1PAC = ASN1.decode(credBytes);
+					let principalChainObject = decodePrincipalChain(asn1PAC);
+					if (principalChainObject != null && principalChainObject.PrincipalList != null && principalChainObject.PrincipalList.length > 0) {
+						stsuu = principalChainObject.PrincipalList[0];
+					} else {
+						credParserDebug("The PAC did not include at least one principal");
+					}
+				} else {
+					credParserDebug("The PAC prefix bytes are incorrect");
+				}
+			} else {
+				credParserDebug("The PAC bytes are too short");
+			}	
+		} catch (e) {
+			credParserDebug("Exception parsing cred: " + e);
+			stsuu = null;
 		}
 	} else {
 		credParserDebug("The PAC header string was not supplied");
