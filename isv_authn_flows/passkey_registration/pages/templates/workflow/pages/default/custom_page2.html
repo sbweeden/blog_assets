@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script>
+            const LS_AMBIENT_CREDENTIALS = "ambientCredentials";
+            var isUVPAA;
+            var isAutofillAvailable;
+
+            function webAuthnAvailable() {
+                return !(typeof(PublicKeyCredential) == undefined);
+            }
+
+            function getAmbientCredentials() {
+                let acStr = localStorage.getItem(LS_AMBIENT_CREDENTIALS);
+                return (acStr == null ? { users: {} } : JSON.parse(acStr));
+            }
+
+            function performWebAuthnFeatureDiscovery() {
+                let allPromises = [];
+                if (webAuthnAvailable()) {
+                    isUVPAA = false;
+                    isAutofillAvailable = false; 
+                    allPromises.push(
+                        PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                        .then((x) => { isUVPAA = x; })
+                        .catch((e) => { console.log("Error calling PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable: " + e); })
+                    );
+                    if (PublicKeyCredential.isConditionalMediationAvailable != null) {
+                        allPromises.push(
+                            PublicKeyCredential.isConditionalMediationAvailable()
+                            .then((x) => { isAutofillAvailable = x; })
+                            .catch((e) => { console.log("Error calling PublicKeyCredential.isConditionalMediationAvailable: " + e); })
+                        );    
+                    }
+                }
+                // now return all the promises
+                return Promise.all(allPromises);
+            }
+
+            function onLoad() {
+                performWebAuthnFeatureDiscovery().then(() => {
+                    document.getElementById("discoveryInfo").value = JSON.stringify({
+                        "cookie": document.cookie,
+                        "isUVPAA": isUVPAA,
+                        "isAutofillAvailable": isAutofillAvailable,
+                        "ambientCredentials": getAmbientCredentials()
+                    });
+
+                    document.getElementById("discoveryForm").submit();
+
+                });
+            }
+
+            window.addEventListener("load", onLoad);
+        </script>
+    </head>
+    <body>
+One moment....
+<form id="discoveryForm" method="POST" action="@WORKFLOW_CALLBACK_URL@">
+    <input type="hidden" id="discoveryInfo" name="discoveryInfo" value="TBD" />
+</form>
+    </body>
+</html>  
