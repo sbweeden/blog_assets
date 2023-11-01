@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>$FIDO2_ENROLLMENT_TITLE$</title>
+      <base href="/" />
+      <meta http-equiv='content-type' content='text/html; charset=UTF-8' />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="shortcut icon" type="image/x-icon" href="usc/favicon.ico" />
+      <link rel="stylesheet" href="usc/css/stateless.css" />
+      <link rel="stylesheet" href="/template/v1.0/static/theme.css?themeId=@THEME_ID@" />
+      <script src="https://kjur.github.io/jsrsasign/jsrsasign-latest-all-min.js"></script>
+      <script type="text/javascript">
+        //START NON-TRANSLATABLE
+        var attestationOptions = @ATTESTATION_OPTIONS@
+        var errorMessage = "@ERROR_MESSAGE@";
+        var showUseAnotherMethod = @SHOW_USE_ANOTHER_METHOD@;
+		var enrollCredInfo;
+		var nicknameError = "$FIDO2_ENROLLMENT_NAME_ERROR$";
+		var isFallback = @FALLBACK@;
+        //END NON-TRANSLATABLE
+
+        /************************** ADDED BY SHANE ***********************/
+        // Added for platform passkey enrolment
+        attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
+        attestationOptions.authenticatorSelection.residentKey = "required";
+
+        // remove the excludeCredentials list, and allow overwrite of the platform authenticator registration
+        // this reduces error conditions that really shouldn't affect the user if the platform authenticator was already enrolled.
+        attestationOptions.excludeCredentials = [];
+
+        /************************** END ADDED BY SHANE ***********************/
+
+
+
+      </script>
+	  <style>
+		li.instructions {
+			margin-bottom: var(--cds-spacing-03,.5rem);
+		}
+		ol {
+			margin-left: 5%;
+		}
+	  </style>
+   </head>
+   <body>
+      <div class="cs-content">
+         @PAGE_HEADER@
+         <div style="border-bottom: 1px solid #dde1e6; margin-bottom: 20px; padding-bottom: 1rem">
+            <h1 style="font-size: 170%; text-align: left; padding-bottom: .5rem">
+               <!-- $FIDO2_ENROLLMENT_HEADING$ -->Add a platform passkey
+            </h1>
+            <!-- <h2 id="prepare" style="display: block; text-align: left;">$FIDO2_ENROLLMENT_PREPARE_DEVICE$</h2> -->
+            <h2 id="name-input" style="display: none; text-align: left;">$FIDO2_ENROLLMENT_NAME_DEVICE$</h2>
+         </div>
+        <div id="instructions">
+         <div class="content" id="list-instructions">
+            <div class="instructions">Use your device unlock mechanism to authenticate on the web<!-- $FIDO2_ENROLLMENT_PREPARE_DEVICE_INSTRUCTION$ --></div>
+            <!--
+            <ol class="bx--list--ordered" style="list-style-position: inside; margin-top: var(--cds-spacing-05,1rem);">
+			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_PLUG_DEVICE_INSTRUCTION$</li>
+			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_ENTER_PIN_INSTRUCTION$</li>
+			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_GIVE_PERMISSION_INSTRUCTION$</li>
+		   </ol>
+         -->
+         <!--
+		   <div style="margin-left: 20px; position: absolute; left: 100px">
+				<button tabindex="0" class="bx--btn--ghost bx--btn bx--btn--primary" type="button" onclick="fallback();">
+					$FIDO2_HAVING_TROUBLE_BUTTON$
+				</button>
+		   </div>
+         -->
+       </div>
+		   <br><br>
+		   <div style="position: relative">
+			  <div class="cs-button-strip cs-row-table spaced">
+				 <button class="cs-button bx--btn bx--btn--primary" id="register-button" onclick="testFidoDevice()">$FIDO2_ENROLLMENT_CONNECT_DEVICE_BUTTON$</button>
+			  </div>
+           <!--
+			  <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
+				 <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a>
+			  </div>
+         -->
+			  <div style="clear: both"></div>
+		   </div>
+        </div>
+
+        <div class="content" id="enroll" style="display: none;">
+            <div class="instructions" style="margin-bottom: 1rem">$FIDO2_ENROLLMENT_NAME_INPUT$</div>
+            <form id="register" method="POST" action="@ACTION@">
+               <input
+                  placeholder="$FIDO2_ENROLLMENT_NICKNAME_PLACEHOLDER$"
+                  type="text"
+                  name="nickname"
+                  id="nickname"
+                  class="bx--text-input"
+                  autofocus
+                  />
+			   <input type="hidden" name="operation" value="register">
+               <input type="hidden" name="attestationResponse" value="">
+			   <div id="cs-error-message-container" class="top-spaced error-message">
+				 <span id="cs-error-message">@ERROR_MESSAGE@</span>
+			   </div>
+               <div style="position: relative">
+                  <div class="cs-button-strip cs-row-table spaced">
+                     <button class="cs-button bx--btn bx--btn--primary" id="verify-button" onclick="registerFidoDevice(event)">$FIDO2_ENROLLMENT_VERIFY_DEVICE_BUTTON$</button>
+                  </div>
+                  <div class="use-another-method" id="another-method2" style="position: absolute; top: 25px">
+                     <!-- <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a> -->
+                  </div>
+                  <div style="clear: both"></div>
+               </div>
+            </form>
+            <form id="use-another-method-form" action="@ACTION@" method="POST">
+               <input name="operation" type="hidden" value="restart">
+            </form>
+			<form id="fallback-form" action="@ACTION@" method="POST">
+               <input name="operation" type="hidden" value="fallback">
+            </form>
+         </div>
+         @PAGE_FOOTER@
+      </div>
+	  <script type="text/javascript" src="/authsvc/mtfim/sps/static/fido2_register.js"></script>
+     <script>
+         var responseTransports = [];
+
+         // override this function from previous src
+         function success(credInfo) {
+            if (credInfo.response.getTransports !== undefined) {
+               responseTransports = credInfo.response.getTransports();
+            }
+
+            enrollCredInfo = {
+               enabled: true,
+               id: credInfo.id,
+               rawId: credInfo.id,
+               response: {
+                  attestationObject: hextob64u(BAtohex(new Uint8Array(credInfo.response.attestationObject))),
+                  clientDataJSON: hextob64u(BAtohex(new Uint8Array(credInfo.response.clientDataJSON)))
+               },
+               type: credInfo.type,
+            };
+
+            // Hide
+            var prepare = document.getElementById("prepare");
+            if (prepare != null || prepare != undefined) {
+               prepare.style.display = "none";	
+            }
+            document.getElementById("instructions").style.display = "none";
+
+            // Show
+            var nameInput = document.getElementById("name-input");
+            if (nameInput != null || nameInput != undefined) {
+               nameInput.style.display = "block";
+            }
+            document.getElementById("enroll").style.display = "block";
+         }         
+     </script>
+     <script>
+         window.addEventListener("load", () => {
+            document.getElementById("register-button").click();
+         });
+     </script>
+     <script>
+         // acknowledegement for this idea to: https://passkeynametool.identitystandards.ms/
+
+         function generatePasskeyNickname() {
+            let fidoNickname = "";
+
+            if(navigator.userAgentData) {
+
+               fidoNickname = navigator.userAgentData.platform + " ";
+               fidoNickname += getBrowserBrand();
+               fidoNickname += " ";
+
+            } else {
+               fidoNickname = getOS() + " ";
+
+               // Remap the macOS string to match the proper branding
+               if(getOS() == "MacOS") {
+                  fidoNickname = "macOS ";
+               }
+
+               fidoNickname += getBrowserAgent();
+               fidoNickname += " ";
+            }
+
+            if(responseTransports.includes("hybrid")) {
+               fidoNickname += "Mobile Platform Passkey";
+
+            } else if(responseTransports.includes("internal")) {
+               fidoNickname += "Platform Passkey";
+
+            } else if(responseTransports.includes("usb")) {
+               fidoNickname += "USB Passkey";
+
+            } else if(responseTransports.includes("ble")) {
+               fidoNickname += "BLE Passkey";
+
+            } else if(responseTransports.includes("nfc")) {
+               fidoNickname += "NFC Passkey";
+
+            } else {
+               fidoNickname += "Passkey";
+            }
+
+            return fidoNickname;
+         }
+
+         function getBrowserBrand() {
+            var brand = "Unknown Browser";
+            var brands = [];
+
+            // Ordering important because some brands include other values accidentally.
+            // We use a special check for Safari based on available functions.
+            if(navigator.userAgentData) {
+               brands = navigator.userAgentData.brands.map(brandEntry => brandEntry.brand);
+            }
+            if(brands.includes("Microsoft Edge")) {
+               brand = "Microsoft Edge";
+
+            } else if(brands.includes("Firefox")) {
+               brand = "Firefox";
+
+            } else if(brands.includes("Opera")) {
+               brand = "Opera";
+
+            } else if(isSafari()) {
+               brand = "Safari";
+
+            } else if(brands.includes("Google Chrome")) {
+               brand = "Google Chrome";
+            }
+            return brand;
+         }
+
+         function getBrowserAgent() {
+            var brand = "Unknown Browser";
+            let agentString = window.navigator.userAgent;
+            // Ordering important because some brands include other values accidentally.
+            // We use a special check for Safari based on available functions.
+            if(agentString.includes("Microsoft Edge")) {
+               brand = "Microsoft Edge";
+
+            } else if(agentString.includes("Firefox")) {
+               brand = "Firefox";
+
+            } else if(agentString.includes("Opera")) {
+               brand = "Opera";
+
+            } else if(isSafari()) {
+               brand = "Safari";
+
+            } else if(agentString.includes("Chrome")) {
+               brand = "Google Chrome";
+            }
+            return brand;
+         }
+
+         function getOS() {
+            var OSName="Unknown OS";
+            if (navigator.appVersion.indexOf("Win")!=-1) OSName="Windows";
+            if (navigator.appVersion.indexOf("Mac")!=-1) OSName="MacOS";
+            if (navigator.appVersion.indexOf("X11")!=-1) OSName="UNIX";
+            if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
+            return OSName;
+         }
+
+         // Safari 3.0+ "[object HTMLElementConstructor]"
+         function isSafari() {
+            return /constructor/i.test(window.HTMLElement) || (function(p) {
+               return p.toString() === "[object SafariRemoteNotification]";
+            })(!window['safari'] || (typeof safari !== 'undefined' && safari.pushNotification));
+         }
+     </script>
+     <script>
+         // use a MutationObserver to trigger auto passkey nickname generation once the enroll element display style is set to 'block'
+         let observer = new MutationObserver(function (mutations) {
+            mutations.forEach((m) => {
+               // leap of faith here since this is the only mutation we are listening for
+               if (enrollCredInfo != null) {
+                  document.getElementById('nickname').value = generatePasskeyNickname();
+               }               
+            });
+         })
+         observer.observe(document.getElementById('enroll'), { attributes: true, attributeFilter: [ 'style'] } );
+     </script>
+   </body>
+</html>

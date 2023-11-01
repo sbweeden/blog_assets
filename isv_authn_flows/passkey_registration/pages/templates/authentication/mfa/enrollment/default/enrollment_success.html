@@ -1,0 +1,75 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title id="loginTitle">$ENROLLMENT_SUCCESSFUL_TITLE$</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <base href="/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" type="image/x-icon" href="ui/assets/img/favicon.ico" />
+  <link rel="stylesheet" href="usc/css/stateless.css" />
+  <link rel="stylesheet" href="template/v1.0/static/theme.css?themeId=@THEME_ID@" />
+  <script>
+    var showAnotherMethod = "@SHOW_ADDITIONAL_METHOD_LINK@";
+    var showInfo = @SHOW_INFO@
+    var doneAllowed = @ALLOW_DONE@
+  </script>
+</head>
+<body>
+  <div class="cs-content">
+    @PAGE_HEADER@
+    <div class="content">
+      <div style="border-bottom: 1px solid #dde1e6; margin-bottom: 20px; padding-bottom: 1rem">
+        <h1 style="font-size: 170%; text-align: left; padding-bottom: .5rem">
+          $ENROLLMENT_SUCCESSFUL_HEADING$
+        </h1>
+        <h2 style="display: block; text-align: left;">@FACTOR_LABEL@ $WAS_ADDED_LABEL$</h2>
+		<p id="setup-info" style="color: #878d96">
+		  @FACTORS_ENROLLED@ of @FACTORS_REQUIRED@ required methods set up
+		</p>
+      </div>
+      <p>@FACTOR_ATTRIBUTE@</p>
+      <p style="margin-bottom: 20px">
+        $ENROLLMENT_CAN_REMOVE_MESSAGE$
+      </p>
+      <form id="success" action="@ACTION@" method="post">
+        <div style="position: relative">
+          <div class="cs-button-strip cs-row-table spaced">
+            <button class="cs-button bx--btn bx--btn--primary" id="done-button" type="submit">$ENROLLMENTS_DONE_BUTTON$</button>
+          </div>
+          <div class="use-another-method" id="use-another-method-link" style="position: absolute; top: 25px">
+            <!-- <a onclick="addMore()" href="javascript:void(0)">$ADD_ADDITIONAL_METHOD_LINK$</a> -->
+          </div>
+          <div style="clear: both"></div>
+        </div>
+        <input type="hidden" name="operation" value="proceed" />
+      </form>
+      <form id="add-another-method-form" action="@ACTION@" method="POST">
+        <input name="operation" type="hidden" value="restart">
+      </form>
+    </div>
+    <script>
+    showAnotherMethodLink();
+
+    function showAnotherMethodLink () {
+      if (typeof showAnotherMethod !== 'undefined' && showAnotherMethod === "false"){
+        document.getElementById("use-another-method-link").style.display="none";
+      }
+    }
+
+    if (!doneAllowed) {
+      document.getElementById("done-button").disabled = true;
+    }
+
+    if (!showInfo) {
+      document.getElementById("setup-info").style.display = 'none';
+    }
+
+    function addMore() {
+      document.getElementById("add-another-method-form").submit();
+    }
+
+    </script>
+    @PAGE_FOOTER@
+  </div>
+</body>
+</html>
