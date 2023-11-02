@@ -25,7 +25,9 @@
         attestationOptions.authenticatorSelection.residentKey = "required";
 
         // remove the excludeCredentials list, and allow overwrite of the platform authenticator registration
-        // this reduces error conditions that really shouldn't affect the user if the platform authenticator was already enrolled.
+        // this reduces error conditions that really shouldn't affect the user.
+        // If the platform authenticator was already enrolled, this will just mean the local
+        // credential is overwritten.
         attestationOptions.excludeCredentials = [];
 
         /************************** END ADDED BY SHANE ***********************/
@@ -123,7 +125,7 @@
      <script>
          var responseTransports = [];
 
-         // override this function from previous src
+         // override this function from previous fido2_register.js src
          function success(credInfo) {
             if (credInfo.response.getTransports !== undefined) {
                responseTransports = credInfo.response.getTransports();
@@ -137,7 +139,7 @@
                   attestationObject: hextob64u(BAtohex(new Uint8Array(credInfo.response.attestationObject))),
                   clientDataJSON: hextob64u(BAtohex(new Uint8Array(credInfo.response.clientDataJSON)))
                },
-               type: credInfo.type,
+               type: credInfo.type
             };
 
             // Hide
@@ -161,119 +163,862 @@
          });
      </script>
      <script>
+         // original cbor.js
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014-2016 Patrick Gansterer <paroga@paroga.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+ (function(global, undefined) { "use strict";
+var POW_2_24 = 5.960464477539063e-8,
+    POW_2_32 = 4294967296,
+    POW_2_53 = 9007199254740992;
+
+function encode(value) {
+  var data = new ArrayBuffer(256);
+  var dataView = new DataView(data);
+  var lastLength;
+  var offset = 0;
+
+  function prepareWrite(length) {
+    var newByteLength = data.byteLength;
+    var requiredLength = offset + length;
+    while (newByteLength < requiredLength)
+      newByteLength <<= 1;
+    if (newByteLength !== data.byteLength) {
+      var oldDataView = dataView;
+      data = new ArrayBuffer(newByteLength);
+      dataView = new DataView(data);
+      var uint32count = (offset + 3) >> 2;
+      for (var i = 0; i < uint32count; ++i)
+        dataView.setUint32(i << 2, oldDataView.getUint32(i << 2));
+    }
+
+    lastLength = length;
+    return dataView;
+  }
+  function commitWrite() {
+    offset += lastLength;
+  }
+  function writeFloat64(value) {
+    commitWrite(prepareWrite(8).setFloat64(offset, value));
+  }
+  function writeUint8(value) {
+    commitWrite(prepareWrite(1).setUint8(offset, value));
+  }
+  function writeUint8Array(value) {
+    var dataView = prepareWrite(value.length);
+    for (var i = 0; i < value.length; ++i)
+      dataView.setUint8(offset + i, value[i]);
+    commitWrite();
+  }
+  function writeUint16(value) {
+    commitWrite(prepareWrite(2).setUint16(offset, value));
+  }
+  function writeUint32(value) {
+    commitWrite(prepareWrite(4).setUint32(offset, value));
+  }
+  function writeUint64(value) {
+    var low = value % POW_2_32;
+    var high = (value - low) / POW_2_32;
+    var dataView = prepareWrite(8);
+    dataView.setUint32(offset, high);
+    dataView.setUint32(offset + 4, low);
+    commitWrite();
+  }
+  function writeTypeAndLength(type, length) {
+    if (length < 24) {
+      writeUint8(type << 5 | length);
+    } else if (length < 0x100) {
+      writeUint8(type << 5 | 24);
+      writeUint8(length);
+    } else if (length < 0x10000) {
+      writeUint8(type << 5 | 25);
+      writeUint16(length);
+    } else if (length < 0x100000000) {
+      writeUint8(type << 5 | 26);
+      writeUint32(length);
+    } else {
+      writeUint8(type << 5 | 27);
+      writeUint64(length);
+    }
+  }
+
+  function encodeItem(value) {
+    var i;
+
+    if (value === false)
+      return writeUint8(0xf4);
+    if (value === true)
+      return writeUint8(0xf5);
+    if (value === null)
+      return writeUint8(0xf6);
+    if (value === undefined)
+      return writeUint8(0xf7);
+
+    switch (typeof value) {
+      case "number":
+        if (Math.floor(value) === value) {
+          if (0 <= value && value <= POW_2_53)
+            return writeTypeAndLength(0, value);
+          if (-POW_2_53 <= value && value < 0)
+            return writeTypeAndLength(1, -(value + 1));
+        }
+        writeUint8(0xfb);
+        return writeFloat64(value);
+
+      case "string":
+        var utf8data = [];
+        for (i = 0; i < value.length; ++i) {
+          var charCode = value.charCodeAt(i);
+          if (charCode < 0x80) {
+            utf8data.push(charCode);
+          } else if (charCode < 0x800) {
+            utf8data.push(0xc0 | charCode >> 6);
+            utf8data.push(0x80 | charCode & 0x3f);
+          } else if (charCode < 0xd800) {
+            utf8data.push(0xe0 | charCode >> 12);
+            utf8data.push(0x80 | (charCode >> 6)  & 0x3f);
+            utf8data.push(0x80 | charCode & 0x3f);
+          } else {
+            charCode = (charCode & 0x3ff) << 10;
+            charCode |= value.charCodeAt(++i) & 0x3ff;
+            charCode += 0x10000;
+
+            utf8data.push(0xf0 | charCode >> 18);
+            utf8data.push(0x80 | (charCode >> 12)  & 0x3f);
+            utf8data.push(0x80 | (charCode >> 6)  & 0x3f);
+            utf8data.push(0x80 | charCode & 0x3f);
+          }
+        }
+
+        writeTypeAndLength(3, utf8data.length);
+        return writeUint8Array(utf8data);
+
+      default:
+        var length;
+        if (Array.isArray(value)) {
+          length = value.length;
+          writeTypeAndLength(4, length);
+          for (i = 0; i < length; ++i)
+            encodeItem(value[i]);
+        } else if (value instanceof Uint8Array) {
+          writeTypeAndLength(2, value.length);
+          writeUint8Array(value);
+        } else {
+          var keys = Object.keys(value);
+          length = keys.length;
+          writeTypeAndLength(5, length);
+          for (i = 0; i < length; ++i) {
+            var key = keys[i];
+            encodeItem(key);
+            encodeItem(value[key]);
+          }
+        }
+    }
+  }
+
+  encodeItem(value);
+
+  if ("slice" in data)
+    return data.slice(0, offset);
+
+  var ret = new ArrayBuffer(offset);
+  var retView = new DataView(ret);
+  for (var i = 0; i < offset; ++i)
+    retView.setUint8(i, dataView.getUint8(i));
+  return ret;
+}
+
+function decode(data, tagger, simpleValue) {
+  var dataView = new DataView(data);
+  var offset = 0;
+
+  if (typeof tagger !== "function")
+    tagger = function(value) { return value; };
+  if (typeof simpleValue !== "function")
+    simpleValue = function() { return undefined; };
+
+  function commitRead(length, value) {
+    offset += length;
+    return value;
+  }
+  function readArrayBuffer(length) {
+    return commitRead(length, new Uint8Array(data, offset, length));
+  }
+  function readFloat16() {
+    var tempArrayBuffer = new ArrayBuffer(4);
+    var tempDataView = new DataView(tempArrayBuffer);
+    var value = readUint16();
+
+    var sign = value & 0x8000;
+    var exponent = value & 0x7c00;
+    var fraction = value & 0x03ff;
+
+    if (exponent === 0x7c00)
+      exponent = 0xff << 10;
+    else if (exponent !== 0)
+      exponent += (127 - 15) << 10;
+    else if (fraction !== 0)
+      return (sign ? -1 : 1) * fraction * POW_2_24;
+
+    tempDataView.setUint32(0, sign << 16 | exponent << 13 | fraction << 13);
+    return tempDataView.getFloat32(0);
+  }
+  function readFloat32() {
+    return commitRead(4, dataView.getFloat32(offset));
+  }
+  function readFloat64() {
+    return commitRead(8, dataView.getFloat64(offset));
+  }
+  function readUint8() {
+    return commitRead(1, dataView.getUint8(offset));
+  }
+  function readUint16() {
+    return commitRead(2, dataView.getUint16(offset));
+  }
+  function readUint32() {
+    return commitRead(4, dataView.getUint32(offset));
+  }
+  function readUint64() {
+    return readUint32() * POW_2_32 + readUint32();
+  }
+  function readBreak() {
+    if (dataView.getUint8(offset) !== 0xff)
+      return false;
+    offset += 1;
+    return true;
+  }
+  function readLength(additionalInformation) {
+    if (additionalInformation < 24)
+      return additionalInformation;
+    if (additionalInformation === 24)
+      return readUint8();
+    if (additionalInformation === 25)
+      return readUint16();
+    if (additionalInformation === 26)
+      return readUint32();
+    if (additionalInformation === 27)
+      return readUint64();
+    if (additionalInformation === 31)
+      return -1;
+    throw "Invalid length encoding";
+  }
+  function readIndefiniteStringLength(majorType) {
+    var initialByte = readUint8();
+    if (initialByte === 0xff)
+      return -1;
+    var length = readLength(initialByte & 0x1f);
+    if (length < 0 || (initialByte >> 5) !== majorType)
+      throw "Invalid indefinite length element";
+    return length;
+  }
+
+  function appendUtf16Data(utf16data, length) {
+    for (var i = 0; i < length; ++i) {
+      var value = readUint8();
+      if (value & 0x80) {
+        if (value < 0xe0) {
+          value = (value & 0x1f) <<  6
+                | (readUint8() & 0x3f);
+          length -= 1;
+        } else if (value < 0xf0) {
+          value = (value & 0x0f) << 12
+                | (readUint8() & 0x3f) << 6
+                | (readUint8() & 0x3f);
+          length -= 2;
+        } else {
+          value = (value & 0x0f) << 18
+                | (readUint8() & 0x3f) << 12
+                | (readUint8() & 0x3f) << 6
+                | (readUint8() & 0x3f);
+          length -= 3;
+        }
+      }
+
+      if (value < 0x10000) {
+        utf16data.push(value);
+      } else {
+        value -= 0x10000;
+        utf16data.push(0xd800 | (value >> 10));
+        utf16data.push(0xdc00 | (value & 0x3ff));
+      }
+    }
+  }
+
+  function decodeItem() {
+    var initialByte = readUint8();
+    var majorType = initialByte >> 5;
+    var additionalInformation = initialByte & 0x1f;
+    var i;
+    var length;
+
+    if (majorType === 7) {
+      switch (additionalInformation) {
+        case 25:
+          return readFloat16();
+        case 26:
+          return readFloat32();
+        case 27:
+          return readFloat64();
+      }
+    }
+
+    length = readLength(additionalInformation);
+    if (length < 0 && (majorType < 2 || 6 < majorType))
+      throw "Invalid length";
+
+    switch (majorType) {
+      case 0:
+        return length;
+      case 1:
+        return -1 - length;
+      case 2:
+        if (length < 0) {
+          var elements = [];
+          var fullArrayLength = 0;
+          while ((length = readIndefiniteStringLength(majorType)) >= 0) {
+            fullArrayLength += length;
+            elements.push(readArrayBuffer(length));
+          }
+          var fullArray = new Uint8Array(fullArrayLength);
+          var fullArrayOffset = 0;
+          for (i = 0; i < elements.length; ++i) {
+            fullArray.set(elements[i], fullArrayOffset);
+            fullArrayOffset += elements[i].length;
+          }
+          return fullArray;
+        }
+        return readArrayBuffer(length);
+      case 3:
+        var utf16data = [];
+        if (length < 0) {
+          while ((length = readIndefiniteStringLength(majorType)) >= 0)
+            appendUtf16Data(utf16data, length);
+        } else
+          appendUtf16Data(utf16data, length);
+        return String.fromCharCode.apply(null, utf16data);
+      case 4:
+        var retArray;
+        if (length < 0) {
+          retArray = [];
+          while (!readBreak())
+            retArray.push(decodeItem());
+        } else {
+          retArray = new Array(length);
+          for (i = 0; i < length; ++i)
+            retArray[i] = decodeItem();
+        }
+        return retArray;
+      case 5:
+        var retObject = {};
+        for (i = 0; i < length || length < 0 && !readBreak(); ++i) {
+          var key = decodeItem();
+          retObject[key] = decodeItem();
+        }
+        return retObject;
+      case 6:
+        return tagger(decodeItem(), length);
+      case 7:
+        switch (length) {
+          case 20:
+            return false;
+          case 21:
+            return true;
+          case 22:
+            return null;
+          case 23:
+            return undefined;
+          default:
+            return simpleValue(length);
+        }
+    }
+  }
+
+  var ret = decodeItem();
+  if (offset !== data.byteLength)
+    throw "Remaining bytes";
+  return ret;
+}
+
+var obj = { encode: encode, decode: decode };
+
+if (typeof define === "function" && define.amd)
+  define("cbor/cbor", obj);
+else if (typeof module !== "undefined" && module.exports)
+  module.exports = obj;
+else if (!global.CBOR)
+  global.CBOR = obj;
+
+})(this);
+     </script>
+     <script>
+         // cbormods
+/*
+* Override the CBOR decode method with a slightly modified version that handles remaining bytes in a 
+* way that allows implementation of CBOR.decodeVariable
+*/
+CBOR.decode = function(data, tagger, simpleValue) {
+  var dataView = new DataView(data);
+  var offset = 0;
+
+  if (typeof tagger !== "function")
+    tagger = function(value) { return value; };
+  if (typeof simpleValue !== "function")
+    simpleValue = function() { return undefined; };
+
+  function commitRead(length, value) {
+    offset += length;
+    return value;
+  }
+  function readArrayBuffer(length) {
+    return commitRead(length, new Uint8Array(data, offset, length));
+  }
+  function readFloat16() {
+    var tempArrayBuffer = new ArrayBuffer(4);
+    var tempDataView = new DataView(tempArrayBuffer);
+    var value = readUint16();
+
+    var sign = value & 0x8000;
+    var exponent = value & 0x7c00;
+    var fraction = value & 0x03ff;
+
+    if (exponent === 0x7c00)
+      exponent = 0xff << 10;
+    else if (exponent !== 0)
+      exponent += (127 - 15) << 10;
+    else if (fraction !== 0)
+      return (sign ? -1 : 1) * fraction * POW_2_24;
+
+    tempDataView.setUint32(0, sign << 16 | exponent << 13 | fraction << 13);
+    return tempDataView.getFloat32(0);
+  }
+  function readFloat32() {
+    return commitRead(4, dataView.getFloat32(offset));
+  }
+  function readFloat64() {
+    return commitRead(8, dataView.getFloat64(offset));
+  }
+  function readUint8() {
+    return commitRead(1, dataView.getUint8(offset));
+  }
+  function readUint16() {
+    return commitRead(2, dataView.getUint16(offset));
+  }
+  function readUint32() {
+    return commitRead(4, dataView.getUint32(offset));
+  }
+  function readUint64() {
+    return readUint32() * POW_2_32 + readUint32();
+  }
+  function readBreak() {
+    if (dataView.getUint8(offset) !== 0xff)
+      return false;
+    offset += 1;
+    return true;
+  }
+  function readLength(additionalInformation) {
+    if (additionalInformation < 24)
+      return additionalInformation;
+    if (additionalInformation === 24)
+      return readUint8();
+    if (additionalInformation === 25)
+      return readUint16();
+    if (additionalInformation === 26)
+      return readUint32();
+    if (additionalInformation === 27)
+      return readUint64();
+    if (additionalInformation === 31)
+      return -1;
+    throw "Invalid length encoding";
+  }
+  function readIndefiniteStringLength(majorType) {
+    var initialByte = readUint8();
+    if (initialByte === 0xff)
+      return -1;
+    var length = readLength(initialByte & 0x1f);
+    if (length < 0 || (initialByte >> 5) !== majorType)
+      throw "Invalid indefinite length element";
+    return length;
+  }
+
+  function appendUtf16Data(utf16data, length) {
+    for (var i = 0; i < length; ++i) {
+      var value = readUint8();
+      if (value & 0x80) {
+        if (value < 0xe0) {
+          value = (value & 0x1f) <<  6
+                | (readUint8() & 0x3f);
+          length -= 1;
+        } else if (value < 0xf0) {
+          value = (value & 0x0f) << 12
+                | (readUint8() & 0x3f) << 6
+                | (readUint8() & 0x3f);
+          length -= 2;
+        } else {
+          value = (value & 0x0f) << 18
+                | (readUint8() & 0x3f) << 12
+                | (readUint8() & 0x3f) << 6
+                | (readUint8() & 0x3f);
+          length -= 3;
+        }
+      }
+
+      if (value < 0x10000) {
+        utf16data.push(value);
+      } else {
+        value -= 0x10000;
+        utf16data.push(0xd800 | (value >> 10));
+        utf16data.push(0xdc00 | (value & 0x3ff));
+      }
+    }
+  }
+
+  function decodeItem() {
+    var initialByte = readUint8();
+    var majorType = initialByte >> 5;
+    var additionalInformation = initialByte & 0x1f;
+    var i;
+    var length;
+
+    if (majorType === 7) {
+      switch (additionalInformation) {
+        case 25:
+          return readFloat16();
+        case 26:
+          return readFloat32();
+        case 27:
+          return readFloat64();
+      }
+    }
+
+    length = readLength(additionalInformation);
+    if (length < 0 && (majorType < 2 || 6 < majorType))
+      throw "Invalid length";
+
+    switch (majorType) {
+      case 0:
+        return length;
+      case 1:
+        return -1 - length;
+      case 2:
+        if (length < 0) {
+          var elements = [];
+          var fullArrayLength = 0;
+          while ((length = readIndefiniteStringLength(majorType)) >= 0) {
+            fullArrayLength += length;
+            elements.push(readArrayBuffer(length));
+          }
+          var fullArray = new Uint8Array(fullArrayLength);
+          var fullArrayOffset = 0;
+          for (i = 0; i < elements.length; ++i) {
+            fullArray.set(elements[i], fullArrayOffset);
+            fullArrayOffset += elements[i].length;
+          }
+          return fullArray;
+        }
+        return readArrayBuffer(length);
+      case 3:
+        var utf16data = [];
+        if (length < 0) {
+          while ((length = readIndefiniteStringLength(majorType)) >= 0)
+            appendUtf16Data(utf16data, length);
+        } else
+          appendUtf16Data(utf16data, length);
+        return String.fromCharCode.apply(null, utf16data);
+      case 4:
+        var retArray;
+        if (length < 0) {
+          retArray = [];
+          while (!readBreak())
+            retArray.push(decodeItem());
+        } else {
+          retArray = new Array(length);
+          for (i = 0; i < length; ++i)
+            retArray[i] = decodeItem();
+        }
+        return retArray;
+      case 5:
+        var retObject = {};
+        for (i = 0; i < length || length < 0 && !readBreak(); ++i) {
+          var key = decodeItem();
+          retObject[key] = decodeItem();
+        }
+        return retObject;
+      case 6:
+        return tagger(decodeItem(), length);
+      case 7:
+        switch (length) {
+          case 20:
+            return false;
+          case 21:
+            return true;
+          case 22:
+            return null;
+          case 23:
+            return undefined;
+          default:
+            return simpleValue(length);
+        }
+    }
+  }
+
+  var ret = decodeItem();
+
+  /*
+   * Here is the modification: deal with remaining bytes a different way so we can implement decodeVariable
+   */
+  //if (offset !== datalen) {
+  //  throw "Remaining bytes";
+  //}
+  if (offset !== data.byteLength) {
+      var result = {};
+      result["decodedObj"] = ret;
+      result["datalen"] = data.byteLength;
+      result["offset"] = offset;
+      throw result;
+    }
+
+  return ret;
+}
+
+/*
+* Added this extra CBOR function to allow extraction of CBOR from a larger byte array
+*/
+CBOR.decodeVariable = function(data, tagger, simpleValue) {
+	try {
+		var result = { "decodedObj": CBOR.decode(data, tagger, simpleValue), "offset": -1 };
+		return result;
+	} catch (e) {
+		if (e["decodedObj"] != null && e["offset"] != null) {
+			// this is a partial decode with remaining bytes
+			return e;
+		} else {
+			throw e;
+		}
+	}
+}         
+     </script>
+     <script>
+         // other utilities for decoding registration data
+	/**
+	 * Extracts the bytes from an array beginning at index start, and continuing until 
+	 * index end-1 or the end of the array is reached. Pass -1 for end if you want to 
+	 * parse till the end of the array.
+	 */
+    function bytesFromArray(o, start, end) {
+		// o may be a normal array of bytes, or it could be a JSON encoded Uint8Array
+		var len = o.length;
+		if (len == null) {
+			len = Object.keys(o).length;
+		}
+		
+		var result = [];
+		for (var i = start; (end == -1 || i < end) && (i < len); i++) {
+			result.push(o[i]);
+		}
+		return result;
+	}
+
+	/**
+	 * Convert a 4-byte array to a uint assuming big-endian encoding
+	 * 
+	 * @param buf
+	 */
+    function bytesToUInt32BE(buf) {
+		var result = 0;
+		if (buf != null && buf.length == 4) {
+			result = ((buf[0] & 0xFF) << 24) | ((buf[1] & 0xFF) << 16) | ((buf[2] & 0xFF) << 8) | (buf[3] & 0xFF);
+			return result;
+		}
+		return result;
+	}
+
+	function unpackAuthData(authDataBytes) {
+		console.log("unpackAuthData enter");
+		var result = { 
+			"status": false, 
+			"rawBytes": null,
+			"rpIdHashBytes": null, 
+			"flags": 0, 
+			"counter": 0, 
+			"attestedCredData": null,
+			"extensions": null
+		};
+		
+		result["rawBytes"] = authDataBytes;
+		
+		if (authDataBytes != null && authDataBytes.length >= 37) {
+			result["rpIdHashBytes"] = bytesFromArray(authDataBytes, 0, 32);
+			result["flags"] = authDataBytes[32];
+			result["counter"] = bytesToUInt32BE(bytesFromArray(authDataBytes, 33, 37));
+					
+			var nextByteIndex = 37;
+			
+			// check flags to see if there is attested cred data and/or extensions
+			
+			// bit 6 of flags - Indicates whether the authenticator added attested credential data.
+			if (result["flags"] & 0x40) {
+				result["attestedCredData"] = {};
+				
+				// are there enough bytes to read aaguid?
+				if (authDataBytes.length >= (nextByteIndex + 16)) {
+					result["attestedCredData"]["aaguid"] = bytesFromArray(authDataBytes, nextByteIndex, (nextByteIndex+16));
+					nextByteIndex += 16;
+					
+					// are there enough bytes for credentialIdLength?
+					if (authDataBytes.length >= (nextByteIndex + 2)) {
+						var credentialIdLengthBytes = bytesFromArray(authDataBytes, nextByteIndex, (nextByteIndex+2));
+						nextByteIndex += 2;
+						var credentialIdLength = credentialIdLengthBytes[0] * 256 + credentialIdLengthBytes[1] 
+						result["attestedCredData"]["credentialIdLength"] = credentialIdLength;
+						
+						// are there enough bytes for the credentialId?
+						if (authDataBytes.length >= (nextByteIndex + credentialIdLength)) {
+							result["attestedCredData"]["credentialId"] = bytesFromArray(authDataBytes, nextByteIndex, (nextByteIndex+credentialIdLength));
+							nextByteIndex += credentialIdLength;
+							
+							var remainingBytes = bytesFromArray(authDataBytes, nextByteIndex, -1);
+							
+							//
+							// try CBOR decoding the remaining bytes. 
+							// NOTE: There could be both credentialPublicKey and extensions objects
+							// so we use this special decodeVariable that Shane wrote to deal with
+							// remaining bytes.
+							//
+							try {
+								var decodeResult = CBOR.decodeVariable((new Uint8Array(remainingBytes)).buffer);
+								result["attestedCredData"]["credentialPublicKey"] = decodeResult["decodedObj"];
+								nextByteIndex += (decodeResult["offset"] == -1 ? remainingBytes.length : decodeResult["offset"]);
+							} catch (e) {
+								console.log("Error CBOR decoding credentialPublicKey: " + e);
+								nextByteIndex = -1; // to force error checking
+							}
+						} else {
+							console.log("unPackAuthData encountered authDataBytes not containing enough bytes for credentialId in attested credential data");
+						}					
+					} else {
+						console.log("unPackAuthData encountered authDataBytes not containing enough bytes for credentialIdLength in attested credential data");
+					}				
+				} else {
+					console.log("unPackAuthData encountered authDataBytes not containing enough bytes for aaguid in attested credential data");
+				}
+			}
+			
+			// bit 7 of flags - Indicates whether the authenticator has extensions.
+			if (nextByteIndex > 0 && result["flags"] & 0x80) {
+				try {
+					result["extensions"] = CBOR.decode((new Uint8Array(bytesFromArray(authDataBytes, nextByteIndex, -1))).buffer);
+					// must have worked
+					nextByteIndex = authDataBytes.length;
+				} catch (e) {
+					console.log("Error CBOR decoding extensions");
+				}
+			}
+			
+			// we should be done - make sure we processed all the bytes
+			if (nextByteIndex == authDataBytes.length) {
+				result["status"] = true;
+			} else {
+				console.log("Remaining bytes in unPackAuthData. nextByteIndex: " + nextByteIndex + " authDataBytes.length: " + authDataBytes.length);
+			}
+		} else {
+			console.log("unPackAuthData encountered authDataBytes not at least 37 bytes long. Actual length: " + authDataBytes.length);
+		}
+	
+		console.log("unpackAuthData returning: " + JSON.stringify(result));
+	
+		return result;
+	}   
+
+	/**
+	* Build a human-readable string from the aaguid bytes
+	*/
+	function aaguidBytesToUUID(b) {
+		var result = null;
+		if (b != null && b.length == 16) {
+			var s = BAtohex(b).toUpperCase();
+			result = s.substring(0,8).concat("-",s.substring(8,12),"-",s.substring(12,16),"-",s.substring(16,20),"-",s.substring(20,s.length));
+		}
+		return result;
+	}
+
+     </script>
+     <script>
          // acknowledegement for this idea to: https://passkeynametool.identitystandards.ms/
+
+
+
+         // see github repo https://github.com/passkeydeveloper/passkey-authenticator-aaguids
+         // this is combined_aaguid.json with all the icon stuff removed to keep it smaller.
+         // to do this I used a browser console and performed:
+         // let c = <contents_of_combined_aaguid.json>
+         // Object.keys(c).forEach(aaguid => { delete c[aaguid].icon_dark; delete c[aaguid].icon_light; })
+         // console.log(JSON.stringify(c))
+         const aaguidLookupTable = {"ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4":{"name":"Google Password Manager"},"adce0002-35bc-c60a-648b-0b25f1f05503":{"name":"Chrome on Mac"},"08987058-cadc-4b81-b6e1-30de50dcbe96":{"name":"Windows Hello Hardware Authenticator"},"9ddd1817-af5a-4672-a2b9-3e3dd95000a9":{"name":"Windows Hello VBS Hardware Authenticator"},"6028b017-b1d4-4c02-b4b3-afcdafc96bb2":{"name":"Windows Hello Software Authenticator"},"dd4ec289-e01d-41c9-bb89-70fa845d4bf2":{"name":"Apple iCloud Keychain (Managed)"},"531126d6-e717-415c-9320-3d9aa6981239":{"name":"Dashlane"},"bada5566-a7aa-401f-bd96-45619a55120d":{"name":"1Password"},"b84e4048-15dc-4dd0-8640-f4f60813c8af":{"name":"NordPass"},"0ea242b4-43c4-4a1b-8b17-dd6d0b6baec6":{"name":"Keeper"},"f3809540-7f14-49c1-a8b3-8f813b225541":{"name":"Enpass"},"b5397666-4885-aa6b-cebf-e52262a439a2":{"name":"Chromium Browser"},"771b48fd-d3d4-4f74-9232-fc157ab0507a":{"name":"Edge on Mac"},"39a5647e-1853-446c-a1f6-a79bae9f5bc7":{"name":"IDmelon Android Authenticator"},"6e8248d5-b479-40db-a3d8-11116f7e8349":{"name":"Bitwarden"},"fcb1bcb4-f370-078c-6993-bc24d0ae3fbe":{"name":"Ledger Nano X FIDO2 Authenticator"},"9c835346-796b-4c27-8898-d6032f515cc5":{"name":"Cryptnox FIDO2"},"c5ef55ff-ad9a-4b9f-b580-adebafe026d0":{"name":"YubiKey 5 Series with Lightning"},"3789da91-f943-46bc-95c3-50ea2012f03a":{"name":"NEOWAVE Winkeo FIDO2"},"fa2b99dc-9e39-4257-8f92-4a30d23c4118":{"name":"YubiKey 5 Series with NFC"},"69700f79-d1fb-472e-bd9b-a3a3b9a9eda0":{"name":"Pone Biometrics OFFPAD Authenticator"},"89b19028-256b-4025-8872-255358d950e4":{"name":"Sentry Enterprises CTAP2 Authenticator"},"4e768f2c-5fab-48b3-b300-220eb487752b":{"name":"Hideez Key 4 FIDO2 SDK"},"931327dd-c89b-406c-a81e-ed7058ef36c6":{"name":"Swissbit iShield FIDO2"},"8d1b1fcb-3c76-49a9-9129-5515b346aa02":{"name":"IDEMIA ID-ONE Card"},"454e5346-4944-4ffd-6c93-8e9267193e9a":{"name":"Ensurity ThinC"},"e1a96183-5016-4f24-b55b-e3ae23614cc6":{"name":"ATKey.Pro CTAP2.0"},"9d3df6ba-282f-11ed-a261-0242ac120002":{"name":"Arculus FIDO2/U2F Key Card"},"fbefdf68-fe86-0106-213e-4d5fa24cbe2e":{"name":"Excelsecu eSecu FIDO2 NFC Security Key"},"ab32f0c6-2239-afbb-c470-d2ef4e254db7":{"name":"TOKEN2 FIDO2 Security Key"},"973446ca-e21c-9a9b-99f5-9b985a67af0f":{"name":"ACS FIDO Authenticator Card"},"1105e4ed-af1d-02ff-ffff-ffffffffffff":{"name":"Egomet FIDO2 Authenticator for Android"},"a4e9fc6d-4cbe-4758-b8ba-37598bb5bbaa":{"name":"Security Key NFC by Yubico"},"0acf3011-bc60-f375-fb53-6f05f43154e0":{"name":"Nymi FIDO2 Authenticator"},"d91c5288-0ef0-49b7-b8ae-21ca0aa6b3f3":{"name":"KEY-ID FIDO2 Authenticator"},"4c50ff10-1057-4fc6-b8ed-43a529530c3c":{"name":"ImproveID Authenticator"},"ee041bce-25e5-4cdb-8f86-897fd6418464":{"name":"Feitian ePass FIDO2-NFC Authenticator"},"efb96b10-a9ee-4b6c-a4a9-d32125ccd4a4":{"name":"Safenet eToken FIDO"},"4b3f8944-d4f2-4d21-bb19-764a986ec160":{"name":"KeyXentic FIDO2 Secp256R1 FIDO2 CTAP2 Authenticator"},"5343502d-5343-5343-6172-644649444f32":{"name":"ESS Smart Card Inc. Authenticator"},"09591fc6-9811-48f7-8f57-b9f23df6413f":{"name":"Pone Biometrics OFFPAD Authenticator"},"7e3f3d30-3557-4442-bdae-139312178b39":{"name":"RSA DS100"},"73bb0cd4-e502-49b8-9c6f-b59445bf720b":{"name":"YubiKey 5 FIPS Series"},"149a2021-8ef6-4133-96b8-81f8d5b7f1f5":{"name":"Security Key by Yubico with NFC"},"175cd298-83d2-4a26-b637-313c07a6434e":{"name":"Chunghwa Telecom FIDO2 Smart Card Authenticator"},"3b1adb99-0dfe-46fd-90b8-7f7614a4de2a":{"name":"GoTrust Idem Key FIDO2 Authenticator"},"998f358b-2dd2-4cbe-a43a-e8107438dfb3":{"name":"OnlyKey Secp256R1 FIDO2 CTAP2 Authenticator"},"61250591-b2bc-4456-b719-0b17be90bb30":{"name":"eWBM eFPA FIDO2 Authenticator"},"f8a011f3-8c0a-4d15-8006-17111f9edc7d":{"name":"Security Key by Yubico"},"8976631b-d4a0-427f-5773-0ec71c9e0279":{"name":"Solo Tap Secp256R1 FIDO2 CTAP2 Authenticator"},"516d3969-5a57-5651-5958-4e7a49434167":{"name":"SmartDisplayer BobeePass FIDO2 Authenticator"},"2c0df832-92de-4be1-8412-88a8f074df4a":{"name":"Feitian FIDO Smart Card"},"c5703116-972b-4851-a3e7-ae1259843399":{"name":"NEOWAVE Badgeo FIDO2"},"c80dbd9a-533f-4a17-b941-1a2f1c7cedff":{"name":"HID Crescendo C3000"},"820d89ed-d65a-409e-85cb-f73f0578f82a":{"name":"IDmelon iOS Authenticator"},"b6ede29c-3772-412c-8a78-539c1f4c62d2":{"name":"Feitian BioPass FIDO2 Plus Authenticator"},"85203421-48f9-4355-9bc8-8a53846e5083":{"name":"YubiKey 5 FIPS Series with Lightning"},"d821a7d4-e97c-4cb6-bd82-4237731fd4be":{"name":"Hyper FIDO Bio Security Key"},"9876631b-d4a0-427f-5773-0ec71c9e0279":{"name":"Somu Secp256R1 FIDO2 CTAP2 Authenticator"},"f4c63eff-d26c-4248-801c-3736c7eaa93a":{"name":"FIDO KeyPass S3"},"d384db22-4d50-ebde-2eac-5765cf1e2a44":{"name":"Excelsecu eSecu FIDO2 Fingerprint Security Key"},"b93fd961-f2e6-462f-b122-82002247de78":{"name":"Android Authenticator with SafetyNet Attestation"},"2fc0579f-8113-47ea-b116-bb5a8db9202a":{"name":"YubiKey 5 Series with NFC"},"d8522d9f-575b-4866-88a9-ba99fa02f35b":{"name":"YubiKey Bio Series"},"50a45b0c-80e7-f944-bf29-f552bfa2e048":{"name":"ACS FIDO Authenticator"},"f7c558a0-f465-11e8-b568-0800200c9a66":{"name":"KONAI Secp256R1 FIDO2 Conformance Testing CTAP2 Authenticator"},"3f59672f-20aa-4afe-b6f4-7e5e916b6d98":{"name":"Arculus FIDO 2.1 Key Card [P71]"},"42b4fb4a-2866-43b2-9bf7-6c6669c2e5d3":{"name":"Google Titan Security Key v2"},"361a3082-0278-4583-a16f-72a527f973e4":{"name":"eWBM eFA500 FIDO2 Authenticator"},"692db549-7ae5-44d5-a1e5-dd20a493b723":{"name":"HID Crescendo Key"},"bbf4b6a7-679d-f6fc-c4f2-8ac0ddf9015a":{"name":"Excelsecu eSecu FIDO2 PRO Security Key"},"3e22415d-7fdf-4ea4-8a0c-dd60c4249b9d":{"name":"Feitian iePass FIDO Authenticator"},"aeb6569c-f8fb-4950-ac60-24ca2bbe2e52":{"name":"HID Crescendo C2300"},"87dbc5a1-4c94-4dc8-8a47-97d800fd1f3c":{"name":"eWBM eFA320 FIDO2 Authenticator"},"9f0d8150-baa5-4c00-9299-ad62c8bb4e87":{"name":"GoTrust Idem Card FIDO2 Authenticator"},"12ded745-4bed-47d4-abaa-e713f51d6393":{"name":"Feitian AllinOne FIDO2 Authenticator"},"88bbd2f0-342a-42e7-9729-dd158be5407a":{"name":"Precision InnaIT Key FIDO 2 Level 2 certified"},"34f5766d-1536-4a24-9033-0e294e510fb0":{"name":"YubiKey 5 Series CTAP2.1 Preview Expired "},"83c47309-aabb-4108-8470-8be838b573cb":{"name":"YubiKey Bio Series (Enterprise Profile)"},"be727034-574a-f799-5c76-0929e0430973":{"name":"Crayonic KeyVault K1 (USB-NFC-BLE FIDO2 Authenticator)"},"58b44d0b-0a7c-f33a-fd48-f7153c871352":{"name":"Ledger Nano S Plus FIDO2 Authenticator"},"07a9f89c-6407-4594-9d56-621d5f1e358b":{"name":"NXP Semiconductros FIDO2 Conformance Testing CTAP2 Authenticator"},"d61d3b87-3e7c-4aea-9c50-441c371903ad":{"name":"KeyVault Secp256R1 FIDO2 CTAP2 Authenticator"},"b92c3f9a-c014-4056-887f-140a2501163b":{"name":"Security Key by Yubico"},"54d9fee8-e621-4291-8b18-7157b99c5bec":{"name":"HID Crescendo Enabled"},"20f0be98-9af9-986a-4b42-8eca4acb28e4":{"name":"Excelsecu eSecu FIDO2 Fingerprint Security Key"},"ab32f0c6-2239-afbb-c470-d2ef4e254db6":{"name":"TEST (DUMMY RECORD)"},"30b5035e-d297-4fc1-b00b-addc96ba6a97":{"name":"OneSpan FIDO Touch"},"6d44ba9b-f6ec-2e49-b930-0c8fe920cb73":{"name":"Security Key by Yubico with NFC"},"e416201b-afeb-41ca-a03d-2281c28322aa":{"name":"ATKey.Pro CTAP2.1"},"cfcb13a2-244f-4b36-9077-82b79d6a7de7":{"name":"USB/NFC Passcode Authenticator"},"91ad6b93-264b-4987-8737-3a690cad6917":{"name":"Token Ring FIDO2 Authenticator"},"9f77e279-a6e2-4d58-b700-31e5943c6a98":{"name":"Hyper FIDO Pro"},"0bb43545-fd2c-4185-87dd-feb0b2916ace":{"name":"Security Key NFC by Yubico - Enterprise Edition"},"73402251-f2a8-4f03-873e-3cb6db604b03":{"name":"uTrust FIDO2 Security Key"},"c1f9a0bc-1dd2-404a-b27f-8e29047a43fd":{"name":"YubiKey 5 FIPS Series with NFC"},"504d7149-4e4c-3841-4555-55445a677357":{"name":"WiSECURE AuthTron USB FIDO2 Authenticator"},"5fdb81b8-53f0-4967-a881-f5ec26fe4d18":{"name":"VinCSS FIDO2 Authenticator"},"2d3bec26-15ee-4f5d-88b2-53622490270b":{"name":"HID Crescendo Key V2"},"cb69481e-8ff7-4039-93ec-0a2729a154a8":{"name":"YubiKey 5 Series"},"0076631b-d4a0-427f-5773-0ec71c9e0279":{"name":"HYPR FIDO2 Authenticator"},"d7a423ad-3e19-4492-9200-78137dccc136":{"name":"VivoKey Apex FIDO2"},"ba76a271-6eb6-4171-874d-b6428dbe3437":{"name":"ATKey.ProS"},"ee882879-721c-4913-9775-3dfcce97072a":{"name":"YubiKey 5 Series"},"8876631b-d4a0-427f-5773-0ec71c9e0279":{"name":"Solo Secp256R1 FIDO2 CTAP2 Authenticator"},"fec067a1-f1d0-4c5e-b4c0-cc3237475461":{"name":"KX701 SmartToken FIDO"},"b267239b-954f-4041-a01b-ee4f33c145b6":{"name":"authenton1 - CTAP2.1"},"b50d5e0a-7f81-4959-9b12-f45407407503":{"name":"IDPrime 3940 FIDO"},"8c97a730-3f7b-41a6-87d6-1e9b62bda6f0":{"name":"FT-JCOS FIDO Fingerprint Card"},"a1f52be5-dfab-4364-b51c-2bd496b14a56":{"name":"OCTATCO EzFinger2 FIDO2 AUTHENTICATOR"},"3e078ffd-4c54-4586-8baa-a77da113aec5":{"name":"Hideez Key 3 FIDO2"},"ec31b4cc-2acc-4b8e-9c01-bade00ccbe26":{"name":"KeyXentic FIDO2 Secp256R1 FIDO2 CTAP2 Authenticator"},"d41f5a69-b817-4144-a13c-9ebd6d9254d6":{"name":"ATKey.Card CTAP2.0"},"95442b2e-f15e-4def-b270-efb106facb4e":{"name":"eWBM eFA310 FIDO2 Authenticator"},"cdbdaea2-c415-5073-50f7-c04e968640b6":{"name":"Excelsecu eSecu FIDO2 Security Key"},"bc2fe499-0d8e-4ffe-96f3-94a82840cf8c":{"name":"OCTATCO EzQuant FIDO2 AUTHENTICATOR"},"eb3b131e-59dc-536a-d176-cb7306da10f5":{"name":"ellipticSecure MIRkey USB Authenticator"},"1c086528-58d5-f211-823c-356786e36140":{"name":"Atos CardOS FIDO2"},"77010bd7-212a-4fc9-b236-d2ca5e9d4084":{"name":"Feitian BioPass FIDO2 Authenticator"},"d94a29d9-52dd-4247-9c2d-8b818b610389":{"name":"VeriMark Guard Fingerprint Key"},"833b721a-ff5f-4d00-bb2e-bdda3ec01e29":{"name":"Feitian ePass FIDO2 Authenticator"}};
 
          function generatePasskeyNickname() {
             let fidoNickname = "";
 
-            if(navigator.userAgentData) {
-
-               fidoNickname = navigator.userAgentData.platform + " ";
-               fidoNickname += getBrowserBrand();
-               fidoNickname += " ";
-
-            } else {
-               fidoNickname = getOS() + " ";
-
-               // Remap the macOS string to match the proper branding
-               if(getOS() == "MacOS") {
-                  fidoNickname = "macOS ";
+            // perform a dirty client-side read (before server-side validation) of the registration data
+            // to extract the AAGUID and see if we can derive some authenticator provider information
+            // from our known list of AAGUIDS.
+            let aaguid = null;
+            let flags = 0;
+            try {
+               let attestationObjectBytes = b64toBA(b64utob64(enrollCredInfo.response.attestationObject));
+               let decodedAttestationObject = CBOR.decode((new Uint8Array(attestationObjectBytes)).buffer);
+               console.log("decodedAttestationObject: " + JSON.stringify(decodedAttestationObject));
+               let unpackedAuthData = unpackAuthData(bytesFromArray(decodedAttestationObject.authData, 0, -1));
+               if (unpackedAuthData["status"]) {
+                  aaguid = aaguidBytesToUUID(unpackedAuthData.attestedCredData.aaguid).toLowerCase();
+                  flags = unpackedAuthData.flags;
+                  console.log("The aaguid is: " + aaguid);
                }
-
-               fidoNickname += getBrowserAgent();
-               fidoNickname += " ";
+            } catch (e) {
+               console.log("Error unpacking attestationObject: " + e);
             }
 
-            if(responseTransports.includes("hybrid")) {
-               fidoNickname += "Mobile Platform Passkey";
-
-            } else if(responseTransports.includes("internal")) {
-               fidoNickname += "Platform Passkey";
-
-            } else if(responseTransports.includes("usb")) {
-               fidoNickname += "USB Passkey";
-
-            } else if(responseTransports.includes("ble")) {
-               fidoNickname += "BLE Passkey";
-
-            } else if(responseTransports.includes("nfc")) {
-               fidoNickname += "NFC Passkey";
-
+            if (aaguid != null) {
+               let candidate = aaguidLookupTable[aaguid];
+               if (candidate != null && candidate.name != null) {
+                  fidoNickname = candidate.name;
+               }
             } else {
-               fidoNickname += "Passkey";
+               fidoNickname = "MyPasskey-" + (new Date()).toUTCString();
+            }
+
+            // also check if it is claimed to be a synced passkey and add this to the name if it is
+            if (flags & 0x10) {
+               fidoNickname += '  (synced)';
             }
 
             return fidoNickname;
          }
-
-         function getBrowserBrand() {
-            var brand = "Unknown Browser";
-            var brands = [];
-
-            // Ordering important because some brands include other values accidentally.
-            // We use a special check for Safari based on available functions.
-            if(navigator.userAgentData) {
-               brands = navigator.userAgentData.brands.map(brandEntry => brandEntry.brand);
-            }
-            if(brands.includes("Microsoft Edge")) {
-               brand = "Microsoft Edge";
-
-            } else if(brands.includes("Firefox")) {
-               brand = "Firefox";
-
-            } else if(brands.includes("Opera")) {
-               brand = "Opera";
-
-            } else if(isSafari()) {
-               brand = "Safari";
-
-            } else if(brands.includes("Google Chrome")) {
-               brand = "Google Chrome";
-            }
-            return brand;
-         }
-
-         function getBrowserAgent() {
-            var brand = "Unknown Browser";
-            let agentString = window.navigator.userAgent;
-            // Ordering important because some brands include other values accidentally.
-            // We use a special check for Safari based on available functions.
-            if(agentString.includes("Microsoft Edge")) {
-               brand = "Microsoft Edge";
-
-            } else if(agentString.includes("Firefox")) {
-               brand = "Firefox";
-
-            } else if(agentString.includes("Opera")) {
-               brand = "Opera";
-
-            } else if(isSafari()) {
-               brand = "Safari";
-
-            } else if(agentString.includes("Chrome")) {
-               brand = "Google Chrome";
-            }
-            return brand;
-         }
-
-         function getOS() {
-            var OSName="Unknown OS";
-            if (navigator.appVersion.indexOf("Win")!=-1) OSName="Windows";
-            if (navigator.appVersion.indexOf("Mac")!=-1) OSName="MacOS";
-            if (navigator.appVersion.indexOf("X11")!=-1) OSName="UNIX";
-            if (navigator.appVersion.indexOf("Linux")!=-1) OSName="Linux";
-            return OSName;
-         }
-
-         // Safari 3.0+ "[object HTMLElementConstructor]"
-         function isSafari() {
-            return /constructor/i.test(window.HTMLElement) || (function(p) {
-               return p.toString() === "[object SafariRemoteNotification]";
-            })(!window['safari'] || (typeof safari !== 'undefined' && safari.pushNotification));
-         }
      </script>
      <script>
-         // use a MutationObserver to trigger auto passkey nickname generation once the enroll element display style is set to 'block'
+         // use a MutationObserver to trigger passkey nickname generation and automatic population into the 
+         // nickname entry field once the enroll element display style is set to 'block'. This is the only
+         // way I could figure out how to know when the registration response was available for introspection.
          let observer = new MutationObserver(function (mutations) {
             mutations.forEach((m) => {
                // leap of faith here since this is the only mutation we are listening for

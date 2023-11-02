@@ -10,6 +10,10 @@
   <link rel="stylesheet" href="usc/css/stateless.css" />
   <link rel="stylesheet" href="template/v1.0/static/theme.css?themeId=@THEME_ID@" />
   <script>
+      // auto-submit this page for this theme. The user has just arrived here
+      // because they have opted in to solicited passkey registration. They
+      // do not need to see a screen that shows a list of just one option "Add a passkey" 
+      // as its a pointless step just introducing more friction.
       window.addEventListener("load", () => {
         document.getElementById("mfa_registration").submit();
       });
