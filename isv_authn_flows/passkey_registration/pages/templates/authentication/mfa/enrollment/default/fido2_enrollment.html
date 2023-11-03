@@ -999,12 +999,14 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
             }
 
             if (aaguid != null) {
-               let candidate = aaguidLookupTable[aaguid];
-               if (candidate != null && candidate.name != null) {
+              let candidate = aaguidLookupTable[aaguid];
+              if (candidate != null && candidate.name != null) {
                   fidoNickname = candidate.name;
-               }
-            } else {
-               fidoNickname = "MyPasskey-" + (new Date()).toUTCString();
+              }
+            } 
+            
+            if (fidoNickname == "") {
+              fidoNickname = "MyPasskey-" + (new Date()).toUTCString();
             }
 
             // also check if it is claimed to be a synced passkey and add this to the name if it is
