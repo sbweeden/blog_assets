@@ -37,7 +37,7 @@ The following subsections give an example of how to complete this task.
 
 In this step, download the master theme template, overwrite those pages with the customised versions of pages associated with this article, then prepare the new zip file for configuring the new theme.
 
-![create branding zip](images/passkeyreg_flowchart.png?raw=true)
+![create branding zip](images/create_branding_zip.png?raw=true)
 
 ### Creating new branding theme
 
