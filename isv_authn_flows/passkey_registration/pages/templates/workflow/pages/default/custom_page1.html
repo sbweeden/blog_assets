@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <!-- 
+            This page is used to redirect to the location that initiated the workflow.
+            It also sets a cookie to indicate the workflow has been completed this session.
+        -->
         <script>
             document.cookie="passkeyworkflowcomplete=true;path=/";
             window.location.replace("@context.Target@");
