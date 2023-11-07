@@ -1,6 +1,10 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
+  <!--
+    Minor customisation in this page to "not show" The Add More link after passkey enrolment, since in this theme
+    solicitation of a single platform passkey is the only goal.
+  -->
   <title id="loginTitle">$ENROLLMENT_SUCCESSFUL_TITLE$</title>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <base href="/" />
@@ -37,7 +41,7 @@
             <button class="cs-button bx--btn bx--btn--primary" id="done-button" type="submit">$ENROLLMENTS_DONE_BUTTON$</button>
           </div>
           <div class="use-another-method" id="use-another-method-link" style="position: absolute; top: 25px">
-            <!-- Do not show the add additional method link for this theme. It has no place in the solicited passkey enrollment workflow. -->
+            <!-- Do not show the add additional method link for this theme. It has no purpose in the solicited passkey enrollment workflow. -->
             <!-- <a onclick="addMore()" href="javascript:void(0)">$ADD_ADDITIONAL_METHOD_LINK$</a> -->
           </div>
           <div style="clear: both"></div>

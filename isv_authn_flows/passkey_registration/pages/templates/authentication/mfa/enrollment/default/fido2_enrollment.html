@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html>
    <head>
+      <!-- 
+        This page has been heavily customised for solicited passkey enrolment. 
+        - Attestation options are refined for the platform authenticator. 
+        - The excludeCredentials list, if any, is removed, allowing passkey overwrite on the client rather than a potential error
+          if the user already had the platform passkey enroled but had logged in another way.
+        - Instructions have been customised, tailored to the platform authenticator.
+        - U2F registration link is removed.
+        - The "Use another method" link is removed.
+        - The post-registration-ceremony processing is modified (by defining a new success function) to allow auto-nickname-generation 
+          of a passkey to be computed from introspecting the WebAuthn registration response, extracting the AAGUID and performing
+          a lookup of well-known passkey providers.
+      -->
       <title>$FIDO2_ENROLLMENT_TITLE$</title>
       <base href="/" />
       <meta http-equiv='content-type' content='text/html; charset=UTF-8' />
@@ -19,7 +31,7 @@
 		var isFallback = @FALLBACK@;
         //END NON-TRANSLATABLE
 
-        /************************** ADDED BY SHANE ***********************/
+        /************************** Passkey enrolement customization ***********************/
         // Added for platform passkey enrolment
         attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
         attestationOptions.authenticatorSelection.residentKey = "required";
@@ -30,7 +42,7 @@
         // credential is overwritten.
         attestationOptions.excludeCredentials = [];
 
-        /************************** END ADDED BY SHANE ***********************/
+        /************************************************************************************/
 
 
 

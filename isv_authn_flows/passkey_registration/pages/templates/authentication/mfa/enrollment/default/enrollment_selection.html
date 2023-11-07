@@ -2,6 +2,12 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 
 <head>
+  <!--
+    This page is typically used in inline MFA registration to ask the user which type of 
+    MFA capability they wish to add. In the passkey registration scenario this step is
+    unnecessary, so we autosubmit the fido2 choice to move to the next step in the 
+    inline mfa registration.
+  -->
   <title id="loginTitle">$ENROLLMENT_SELECTION_TITLE$</title>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <base href="/" />
@@ -10,10 +16,6 @@
   <link rel="stylesheet" href="usc/css/stateless.css" />
   <link rel="stylesheet" href="template/v1.0/static/theme.css?themeId=@THEME_ID@" />
   <script>
-      // auto-submit this page for this theme. The user has just arrived here
-      // because they have opted in to solicited passkey registration. They
-      // do not need to see a screen that shows a list of just one option "Add a passkey" 
-      // as its a pointless step just introducing more friction.
       window.addEventListener("load", () => {
         document.getElementById("mfa_registration").submit();
       });
