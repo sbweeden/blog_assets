@@ -13,13 +13,26 @@ Logically, the workflow behaves as shown in the following flowchart:
 
 ![workflow flowchart](images/passkeyreg_flowchart.png?raw=true)
 
+# Tenant configuration pre-requisites
+
+For this workflow to operate correctly on your tenant, the following pre-requisite configuration is required:
+
+- Your tenant must have FIDO2 (passkey) authentication enabled for end users. Because the idea is to solicit registration of a passkey typically after a different form of login, this should be configured for the for the `Cloud Directory` identity provider as shown:
+
+![configure fido2 for login](images/configure_fido2_for_login.png?raw=true)
+
+- Under `Authentication` -> `Authentication factors`, inline MFA registration must be enabled. This is done using the following General multi-factor authentication setting:
+
+![enable inline mfa enrolment](images/enable_inline_mfa_enrolment.png?raw=true)
+
+
 # Installation and Configuration
 
 Follow the steps below to create and configure assets used by the passkey registration workflow:
 
 ## Custom Branding Theme
 
-- Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages to understand the changes. They also include HTML comments with information on what was done for customization:
+Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages to understand the changes. They also include HTML comments with information on what was done for customization:
 ```
         ./authentication/mfa/enrollment/default/enrollment_selection.html
         ./authentication/mfa/enrollment/default/enrollment_success.html
