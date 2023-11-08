@@ -28,7 +28,7 @@ For this workflow to operate correctly on your tenant, the following pre-requisi
 
 # Installation and Configuration
 
-Follow the steps below to create and configure assets used by the passkey registration workflow:
+Follow the steps below to create and configure assets used by the passkey registration workflow.
 
 ## Custom Branding Theme
 
@@ -58,15 +58,11 @@ In this step, create a new branding theme using the `passkeyreg.zip` page templa
 
 ![create branding theme](images/create_branding_theme.png?raw=true)
 
-### Record the themeid for later use
+### Record the themeId for later use
 
-After the theme is created, it will be assigned an id. We will need this id when configuring a redirect URL for triggering the workflow later.  There is currently no visible way to see this id, but you can easily discover it with browser tools looking at the API calls. 
+After the theme is created, it will be assigned an id. We will need this id when configuring a redirect URL for triggering the workflow later.  You can easily discover it using your browser by navigating to the Branding theme and recovering the themeId from the URL in your browser. In this example the themeid for the `passkeyreg` theme is `504c1358-04c7-45f4-b7b6-4dde17f1211a`:
 
-Using the network debugger in the browser, refresh the branding page and look for an API call to the themes endpoint. Inspect the response payload to discover your theme id, then copy it for later use. 
-
-In this example the themeid for the `passkeyreg` theme is `504c1358-04c7-45f4-b7b6-4dde17f1211a`:
-
-![capture theme id](images/capture_themeid.png?raw=true)
+![capture theme id](images/capture_themeid2.png?raw=true)
 
 ## Import and configure workflow
 
@@ -132,4 +128,14 @@ Attach the `Passkey Registration` access policy to either an application, or as 
 
 # Runtime examples
 
-TBD
+Try accessing the end-user portal page for your tenant, and logging in with a username/password:
+
+After login, you should be redirected to the solicited passkey registration flow, where various checks against existing session state and browser capabilities will be performed. The following screen will show momentarily while client-side capabilities are discovered:
+
+
+If solicited passkey registration is deemed appropriate, the user will be prompted to opt-in to passkey enrollment:
+
+
+
+
+WHAT HAPPENS NEXT IF THE USER DOES NOT HAVE ANY EXISTING MFA METHODS?
