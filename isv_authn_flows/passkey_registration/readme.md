@@ -128,14 +128,4 @@ Attach the `Passkey Registration` access policy to either an application, or as 
 
 # Runtime examples
 
-Try accessing the end-user portal page for your tenant, and logging in with a username/password:
-
-After login, you should be redirected to the solicited passkey registration flow, where various checks against existing session state and browser capabilities will be performed. The following screen will show momentarily while client-side capabilities are discovered:
-
-
-If solicited passkey registration is deemed appropriate, the user will be prompted to opt-in to passkey enrollment:
-
-
-
-
-WHAT HAPPENS NEXT IF THE USER DOES NOT HAVE ANY EXISTING MFA METHODS?
+TBD
