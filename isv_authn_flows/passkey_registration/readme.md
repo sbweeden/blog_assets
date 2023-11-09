@@ -77,7 +77,24 @@ After the theme is created, it will be assigned an id. We will need this id when
 
 Save and publish changes to the workflow after completing this task.
 
-## Create an access policy to trigger the workflow
+
+# Options for launching the workflow
+
+After the workflow is published, it can be invoked and tested by using the launch link provided in the `General` tab of the flow designer:
+
+![launch url](images/launch_url.png?raw=true)
+
+This is all well and good, however real users interacting with your deployment will not access it this way. Instead, we desire one or more ways of invoking the workflow in the course of normal end-user interaction with the site.
+
+Here are a couple of different techniques, along with some considerations for when you might apply a particular option. Each of these integration patterns will be explained in detail in following subsections.
+
+| Integration technique | Comments |
+| --------------------- | ---------|
+| Access policy         | This is the recommended method of integration for most post-authentication style workflows such as the solicited passkey registration workflow. If a workflow is **compulsory** during end-user authentication or single sign-on, then an access policy integration is required, as the alternatives mentioned here is easily bypassed. |
+| Redirect from login page | The login page is modified to always redirect to your workflow unless (using a query string parameter detected with client-side javascript) the login page was launched **from** the workflow, in which case it renders the real login page. This technique is very simple to implement, but can be bypassed by the user simply by including the same query string parameter in the login URL that the workflow sends when redirecting for login. It is useful for optional (opt-in) workflows, including the solicited passkey registration workflow since it is not a compulsory interaction. |
+| Integration at the end of change/reset password | Some sites will not want to integrate solicitied passkey registration during login or single sign-on. In fact the [FIDO UX Guidelines](https://fidoalliance.org/ux-guidelines/) recommend not to do this, as the user is typically in the act of performing some other task, and will generally press *Not now* or *Never* and get on with what they were trying to do. Instead it is considered a better practice to invite passkey registration during other account management operations such as changing or resetting a password. |
+
+## Using an access policy to trigger the workflow
 
 Complete the following subsections to create an access policy that will trigger the solicited passkey registration workflow on home page access:
 
@@ -100,7 +117,7 @@ statements:
 
 ### Create an access policy to trigger the workflow
 
-This workflow is triggered via an access policy. In the examples shown in this article, the access policy was attached to the `Home page access` of the login portal, but it could also be attached to any application. 
+In the examples shown in this section, the workflow is triggered via an access policy attached to the `Home page access` of the login portal, but it could also be attached to any application single-sign on configuration. 
 
 The Access policy to be created has two rules:
    - If the workflow has been completed already, allow
@@ -120,9 +137,20 @@ Following on from the earlier example of how to capture your custom themeid, the
 
 ### Attach access policy 
 
-Attach the `Passkey Registration` access policy to either an application, or as shown in the article, the `Home page access`:
+Attach the `Passkey Registration` access policy to either an application single sign-on configuration, and/or as shown here, the `Home page access`:
 
 ![attach access policy](images/attach_access_policy.png?raw=true)
+
+
+## Triggering the workflow from the login page
+
+TBD
+
+## Triggering the workflow during change/reset password
+
+TBD
+
+
 
 # Invoking the workflow from other contexts
 
