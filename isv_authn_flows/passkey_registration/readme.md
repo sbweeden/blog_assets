@@ -2,7 +2,7 @@
 
 This IBM Security Verify Workflow is designed to solicit registration of a passkey, post-authentication.
 
-Ostensibly it checks whether the user has logged in already with a passkey, and if not, asks them if they would like to enrol. Should they opt in, the inline MFA registration flow is used to guide the user through passkey registration.
+Ostensibly it checks whether the user has logged in already with a passkey, and if not, asks them if they would like to enroll. Should they opt in, the inline MFA registration flow is used to guide the user through passkey registration.
 
 There's a little more to it than that - here are a list of key features:
   - The user can opt out either one-time, or permanently, and localStorage is used to remember permanent decisions for future executions of the workflow.
@@ -41,7 +41,6 @@ Create a new branding theme called `passkeyreg`, using the master template but r
         ./workflow/pages/default/custom_page1.html
         ./workflow/pages/default/custom_page2.html
         ./workflow/pages/default/custom_page3.html
-        ./workflow/pages/default/custom_page5.html
 ```
 
 The following subsections give an example of how to complete this task.
@@ -125,7 +124,17 @@ Attach the `Passkey Registration` access policy to either an application, or as 
 
 ![attach access policy](images/attach_access_policy.png?raw=true)
 
+# Invoking the workflow from other contexts
+
+Describe how to invoke the workflow from then end of the change password flow.
+Also same for password reset.
 
 # Runtime examples
 
-TBD
+Try accessing the end-user portal page for your tenant, and logging in with a username/password:
+
+After login, you should be redirected to the solicited passkey registration flow, where various checks against existing session state and browser capabilities will be performed. The following screen will show momentarily while client-side capabilities are discovered:
+
+
+If solicited passkey registration is deemed appropriate, the user will be prompted to opt-in to passkey enrollment:
+
