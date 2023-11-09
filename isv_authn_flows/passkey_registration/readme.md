@@ -32,7 +32,7 @@ Follow the steps below to create and configure assets used by the passkey regist
 
 ## Custom Branding Theme
 
-Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages against the master template to understand the changes. Each also includes HTML comments in the `&lt;head&gt;`` tag with information on what was done for customization:
+Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages against the master template to understand the changes. Each also includes HTML comments in the `&lt;head&gt;` tag with information on what was done for customization:
 ```
     ./authentication/login/identity_source/identity_source_selection/default/combined_login_selection.html (this page  is **optional** - see discussion on login page below)
     ./authentication/mfa/enrollment/default/enrollment_selection.html
