@@ -32,15 +32,16 @@ Follow the steps below to create and configure assets used by the passkey regist
 
 ## Custom Branding Theme
 
-Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages to understand the changes. They also include HTML comments with information on what was done for customization:
+Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages against the master template to understand the changes. Each also includes HTML comments in the `&lt;head&gt;`` tag with information on what was done for customization:
 ```
-        ./authentication/mfa/enrollment/default/enrollment_selection.html
-        ./authentication/mfa/enrollment/default/enrollment_success.html
-        ./authentication/mfa/enrollment/default/fido2_enrollment.html
-        ./authentication/mfa/fido2/default/passwordless_fido2.html
-        ./workflow/pages/default/custom_page1.html
-        ./workflow/pages/default/custom_page2.html
-        ./workflow/pages/default/custom_page3.html
+    ./authentication/login/identity_source/identity_source_selection/default/combined_login_selection.html (this page  is **optional** - see discussion on login page below)
+    ./authentication/mfa/enrollment/default/enrollment_selection.html
+    ./authentication/mfa/enrollment/default/enrollment_success.html
+    ./authentication/mfa/enrollment/default/fido2_enrollment.html
+    ./authentication/mfa/fido2/default/passwordless_fido2.html
+    ./workflow/pages/default/custom_page1.html
+    ./workflow/pages/default/custom_page2.html
+    ./workflow/pages/default/custom_page3.html
 ```
 
 The following subsections give an example of how to complete this task.
@@ -86,13 +87,15 @@ After the workflow is published, it can be invoked and tested by using the launc
 
 This is all well and good, however real users interacting with your deployment will not access it this way. Instead, we desire one or more ways of invoking the workflow in the course of normal end-user interaction with the site.
 
-Here are a couple of different techniques, along with some considerations for when you might apply a particular option. Each of these integration patterns will be explained in detail in following subsections.
+Here are a couple of different techniques, along with some considerations for when you might apply a particular option. 
 
 | Integration technique | Comments |
 | --------------------- | ---------|
 | Access policy         | This is the recommended method of integration for most post-authentication style workflows such as the solicited passkey registration workflow. If a workflow is **compulsory** during end-user authentication or single sign-on, then an access policy integration is required, as the alternatives mentioned here is easily bypassed. |
 | Redirect from login page | The login page is modified to always redirect to your workflow unless (using a query string parameter detected with client-side javascript) the login page was launched **from** the workflow, in which case it renders the real login page. This technique is very simple to implement, but can be bypassed by the user simply by including the same query string parameter in the login URL that the workflow sends when redirecting for login. It is useful for optional (opt-in) workflows, including the solicited passkey registration workflow since it is not a compulsory interaction. |
-| Integration at the end of change/reset password | Some sites will not want to integrate solicitied passkey registration during login or single sign-on. In fact the [FIDO UX Guidelines](https://fidoalliance.org/ux-guidelines/) recommend not to do this, as the user is typically in the act of performing some other task, and will generally press *Not now* or *Never* and get on with what they were trying to do. Instead it is considered a better practice to invite passkey registration during other account management operations such as changing or resetting a password. |
+| Integration at the end of change/reset password | Some sites will not want to integrate solicitied passkey registration during login or single sign-on. In fact for the consumer space the [FIDO UX Guidelines](https://fidoalliance.org/ux-guidelines/) recommend not to do this, as the user is typically in the act of performing some other task, and will generally press *Not now* or *Never* and get on with what they were trying to do. Instead it is considered a better practice to invite passkey registration during other account management operations such as changing or resetting a password. Enterprise use cases are a little different, as enterprises can and do often require employees to take specific actions, and one of those might be compulsory passkey registration on devices that support it. |
+
+Configuration for each of these integration patterns is explored below.
 
 ## Using an access policy to trigger the workflow
 
