@@ -32,7 +32,7 @@ Follow the steps below to create and configure assets used by the passkey regist
 
 ## Custom Branding Theme
 
-Create a new branding theme called `passkeyreg`, using the master template but replacing these pages under the `pages/templates` directory. You can diff the pages against the master template to understand the changes. Each also includes HTML comments in the `<head>` tag with information on what was done for customization:
+Create a new branding theme called `passkeyreg`, using the master template but replacing the following pages under the `pages/templates` directory. You can diff the pages against the master template to understand the changes. Each also includes HTML comments in the `<head>` tag with information on what was done for customization:
 ```
     ./authentication/login/identity_source/identity_source_selection/default/combined_login_selection.html (this page  is **optional** - see discussion on login page below)
     ./authentication/mfa/enrollment/default/enrollment_selection.html
@@ -44,7 +44,16 @@ Create a new branding theme called `passkeyreg`, using the master template but r
     ./workflow/pages/default/custom_page3.html
 ```
 
-The following subsections give an example of how to complete this task.
+In addition to the required pages above, there are other pages which might be optionally used depending on the method of integrating the workflow into normal end-user interaction with your site. These *optional* pages are:
+```
+    ./authentication/login/cloud_directory/password/forgot_password/default/forgot_password_success.html
+    ./authentication/login/identity_source/identity_source_selection/default/combined_login_selection.html
+```
+
+You can find more details about when to use the optional pages in the sections below on workflow launch.
+
+
+The following subsections give an example of how to update the page templates.
 
 ### Creating the template page zip file
 
@@ -93,7 +102,7 @@ Here are some different techniques, along with some considerations for when you 
 | --------------------- | ---------|
 | Access policy         | This is a recommended method of integration for most post-authentication style workflows such as the solicited passkey registration workflow. If a workflow is **compulsory** during end-user authentication or single sign-on, then access policy integration is required, as the other integration methods mentioned here are easily bypassed. |
 | Redirect from login page | The login page is modified to always redirect to your workflow unless (using a query string parameter detected with client-side javascript) the login page was launched **from** the workflow, in which case it renders the real login page. This technique is very simple to implement, but can be bypassed by the user simply by accessing the login URL directly and including the same query string parameter that the workflow sends when redirecting for login. It is useful for optional (opt-in) workflows that you want to apply to every login event, including the solicited passkey registration workflow. |
-| Integration at the end of change/reset password | Some sites will not want to integrate solicitied passkey registration during login or single sign-on. In fact for the consumer space the [FIDO UX Guidelines](https://fidoalliance.org/ux-guidelines/) recommend not to do this, as the user is typically in the act of performing some other task, and consumer testing has shown they will generally press *Not now* or *Never* and get on with what they were trying to do. Instead it is considered a better practice to invite passkey registration during other account management operations such as changing or resetting a password. Enterprise use cases are a little different, as enterprises can and do often require employees to take specific actions, and one of those might be compulsory passkey registration on devices that support it. |
+| Integration at the end of password reset | Some sites will not want to integrate solicitied passkey registration during login or single sign-on. In fact for the consumer space the [FIDO UX Guidelines](https://fidoalliance.org/ux-guidelines/) recommend not to do this, as the user is typically in the act of performing some other task, and consumer testing has shown they will generally press *Not now* or *Never* and get on with what they were trying to do. Instead it is considered a better practice to invite passkey registration during other account management operations such as resetting a password. Enterprise use cases are a little different, as enterprises can and do often require employees to take specific actions, and one of those might be compulsory passkey registration on devices that support it. |
 
 Configuration for each of these integration patterns is explored below.
 
@@ -147,25 +156,27 @@ Attach the `Passkey Registration` access policy to either an application single 
 
 ## Triggering the workflow from the login page
 
-TBD
+Triggering the solicited passkey registration from the login page may be useful if your intention is to quickly integrate the flow into all login events, regardless of any access policy attached to an application or the user portal. As mentioned earlier though, this can be bypassed with simple URL manipulation, so don't rely on this technique for any compulsory workflow. 
 
-## Triggering the workflow during change/reset password
+The implementation is very simple - javascript within the login page redirects to the workflow, unless a query string parameter exists in the current page URL which is what the workflow itself sets when redirecting back for login. When this is detected, the regular login page is rendered. 
 
-TBD
+You can see the implementation of this in the included `combined_login_selection.html` page. Note that in your own deployment you will need to update the themeId parameter used in the launch URL to that of your `passkeyreg` custom theme. You may also wish to put the `combined_login_selection.html` page in the default theme for situations where the user visits the top-level URL of your tenant without a themeId query string parameter.
 
+## Triggering the workflow during password reset
 
+In order to add passkey registration to the end of a reset password operation, you first have to enable self-service password reset in your tenant. This is done as shown:
 
-# Invoking the workflow from other contexts
+![enable password reset](images/enable_password_reset.png?raw=true)
 
-Describe how to invoke the workflow from then end of the change password flow.
-Also same for password reset.
-
-# Runtime examples
-
-Try accessing the end-user portal page for your tenant, and logging in with a username/password:
-
-After login, you should be redirected to the solicited passkey registration flow, where various checks against existing session state and browser capabilities will be performed. The following screen will show momentarily while client-side capabilities are discovered:
+Once that is done, utilise the included `forgot_password_success.html` page to detect if passkey capabilities are available and (when they are) include a link to solicited passkey registration workflow. One drawback to this particular integration is that the user will then immediately have to login again with their new password, then they will be asked again (by the workflow prompt) if they wish to register. Some creative use of a cookie or the ambientCredentials local storage object could optimise out this second prompt, and would definitely be recommended if this was your preferred method of integration.
 
 
-If solicited passkey registration is deemed appropriate, the user will be prompted to opt-in to passkey enrollment:
+# Runtime example
+
+The screenshots below are taken from a runtime example where the workflow has been integrated into the portal access policy.
+
+After accessing the end-user portal page for your tenant, and logging in with a username/password, the user is redirected to the solicited passkey registration flow. Various checks against existing session state and browser capabilities will be performed and solicited passkey registration is deemed appropriate the user will be prompted to opt-in to passkey enrollment.
+
+![runtime1](images/runtime1.png?raw=true)
+![runtime2](images/runtime2.png?raw=true)
 
