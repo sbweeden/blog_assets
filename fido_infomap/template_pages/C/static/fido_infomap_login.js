@@ -51,34 +51,38 @@
     }
 
     function refreshAutofill() {
-        // called occassionally via a timer to get a fresh challenge
-        // get fresh assertion options
-        $.ajax({
-            type: "PUT",
-            url: getLoginAPIAuthSvcURL(),
-            data: JSON.stringify({
-                // the only difference here is a longer timeout is returned
-                action: "getAssertionOptionsAutofill"
-            }),
-            contentType: "application/json; charset=utf-8",
-            dataType: "json",
-            beforeSend: function(xhr) {
-                xhr.setRequestHeader("Accept: application/json");
-            }
-        }).done(function(data, textStatus, jqXHR) {
-            if (jqXHR.status == 200) {
-                // restart autofill with the new options - this will setup a new timer also
-                processAssertionOptionsResponse(data, true);
-            } else {
+
+        // only do something if autofill is available
+        if (isAutofillAvailable) {
+            // called occassionally via a timer to get a fresh challenge
+            // get fresh assertion options
+            $.ajax({
+                type: "PUT",
+                url: getLoginAPIAuthSvcURL(),
+                data: JSON.stringify({
+                    // the only difference here is a longer timeout is returned
+                    action: "getAssertionOptionsAutofill"
+                }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader("Accept: application/json");
+                }
+            }).done(function(data, textStatus, jqXHR) {
+                if (jqXHR.status == 200) {
+                    // restart autofill with the new options - this will setup a new timer also
+                    processAssertionOptionsResponse(data, true);
+                } else {
+                    errMsg = "Unexpected HTTP response code in refreshAutofill: " + jqXHR.status;
+                    showError(errMsg);
+                    console.log(errMsg);
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
                 errMsg = "Unexpected HTTP response code in refreshAutofill: " + jqXHR.status;
                 showError(errMsg);
                 console.log(errMsg);
-            }
-        }).fail(function(jqXHR, textStatus, errorThrown) {
-            errMsg = "Unexpected HTTP response code in refreshAutofill: " + jqXHR.status;
-            showError(errMsg);
-            console.log(errMsg);
-        });
+            });
+        }
     }
 
     function cleanupAutofillControls() {
