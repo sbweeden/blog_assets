@@ -280,8 +280,6 @@
                 }
             }
 
-            var globalDebug = null;
-
 			function processAssertionResponse(assertionJson, cberr) {
 				var postData = {
 					"operation": "authenticate",
@@ -304,12 +302,25 @@
 					console.log("processAssertionResponse response status: " + response.status);
 
                     if (response.status == 204) {
-                        let params = new URLSearchParams(window.location.search);
-                        let targetUrl = "/";
-                        if (params.has("Target")) {
-                            targetUrl = params.get("Target");
-                        }
-                        window.location.replace(targetUrl);
+                        // We now have an authenticated session cookie.
+                        // Just before redirecting to the target URL, signal to the 
+                        // workflow that we are done. This allows server-side workflow
+                        // cleanup to occur.
+                        fetch(
+                            document.getElementById("usernameForm").action,
+                            {
+                                body: "done=true",
+                                headers: {
+                                    "Content-Type": "application/x-www-form-urlencoded",
+                                },
+                                method: "POST"
+                            }
+                        ).then((x) => {
+                            redirectToTarget();
+                        }).catch((e) => {
+                            console.log(e);
+                            redirectToTarget();
+                        });
                     } else {
                         // an error occured
                         try {
@@ -332,8 +343,20 @@
 					cberr("processAssertionResponse error: " + error);
                     // in error case, resume autofill
                     refreshAutofill();
-				});
+				}).finally(() => {
+                    console.log("Finally called");
+                });
 			}
+
+            function redirectToTarget() {
+                // take the browser to the target
+                let params = new URLSearchParams(window.location.search);
+                let targetUrl = "/";
+                if (params.has("Target")) {
+                    targetUrl = params.get("Target");
+                }
+                window.location.replace(targetUrl);
+            }
 
             function refreshAutofill() {
                 if (isAutofillAvailable) {
