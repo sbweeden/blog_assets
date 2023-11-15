@@ -17,16 +17,21 @@
         <div class="content">
             <div>
                 @PAGE_HEADER@
+                <br>
                 <p>Enter your username or select a passkey</p>
 
                 <form id="usernameForm" method="POST" action="@WORKFLOW_CALLBACK_URL@">
-                    <input type="text" id="username" name="Username" autocomplete="username webauthn" />
+                    <input type="text" id="username" name="username" autocomplete="username webauthn" />
                     <input type="submit" value="Next" />
                     <p>OR</p>
                     <input type="button" value="Sign in with a passkey" onclick="modalPasskeyLogin()"/>
                 </form>
 
             </div>
+            <br>
+            <div id="errDiv" style="color:red; display:none;">
+            </div>
+            <br>
             <!---->
             @PAGE_FOOTER@
         </div>
@@ -43,8 +48,31 @@
 
             let postLocation;
 
+            function hideDiv(id) {
+                document.getElementById(id).style.display = "none";
+            }
+
+            function showDiv(id) {
+                document.getElementById(id).style.display = "block";
+            }
+
             function base64URLEncode(bytes) {
                 return hextob64u(BAtohex(new Uint8Array(bytes)));
+            }
+            function htmlEncode(s) {
+                if (s) {
+                    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                } else {
+                    return '';
+                }
+            }
+
+            function htmlDecode(s) {
+                if (s) {
+                    return s.replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+                } else {
+                    return '';
+                }
             }
 
 			function getBaseURL() {
@@ -226,9 +254,7 @@
                         console.log("Autofill request aborted");
                         cleanupAutofillControls();
                     } else {
-                        let errMsg = "processAssertionOptionsResponse failed via catch: " + err;
-                        console.log(errMsg);
-                        cberr(errMsg);
+                        cberr(err);
                     }
 
                     // if the modal was aborted, resume autofill if supported
@@ -254,6 +280,8 @@
                 }
             }
 
+            var globalDebug = null;
+
 			function processAssertionResponse(assertionJson, cberr) {
 				var postData = {
 					"operation": "authenticate",
@@ -275,36 +303,60 @@
 				).then((response) => {
 					console.log("processAssertionResponse response status: " + response.status);
 
-					let params = new URLSearchParams(window.location.search);
-					let targetUrl = "/";
-					if (params.has("Target")) {
-						targetUrl = params.get("Target");
-					}
-                    window.location.replace(targetUrl);
+                    if (response.status == 204) {
+                        let params = new URLSearchParams(window.location.search);
+                        let targetUrl = "/";
+                        if (params.has("Target")) {
+                            targetUrl = params.get("Target");
+                        }
+                        window.location.replace(targetUrl);
+                    } else {
+                        // an error occured
+                        try {
+                            response.json().then((data) => {
+                                if (typeof data.exceptionMsg != undefined) {
+                                    cberr(data.exceptionMsg);
+                                }
+                            }).catch((e) => {
+                                cberr(e);
+                            });
+                        } catch (e) {
+                            cberr(e);
+                        }
+
+                        // in error case, resume autofill
+                        refreshAutofill();
+                    }
+
 				}).catch((error) => {
 					cberr("processAssertionResponse error: " + error);
+                    // in error case, resume autofill
+                    refreshAutofill();
 				});
 			}
 
             function refreshAutofill() {
-                fetchOptions(true, processAssertionOptionsResponse, onError);
+                if (isAutofillAvailable) {
+                    fetchOptions(true, processAssertionOptionsResponse, onError);
+                }
             }
 
             function modalPasskeyLogin() {
+                hideDiv("errDiv");
                 fetchOptions(false, processAssertionOptionsResponse, onError);
             }
 
             function onError(msg) {
                 console.log("error: " + msg);
+                document.getElementById("errDiv").innerText = msg;
+                showDiv("errDiv");
             }
 
             window.addEventListener('load', (e) => {
                 performWebAuthnFeatureDiscovery()
                 .then((x) => {
-                    // if autofill is available, kick of the condiitonal mediation flow
-                    if (isAutofillAvailable) {
-                        refreshAutofill();
-                    }
+                    // kick of the condiitonal mediation flow if available
+                    refreshAutofill();
                 });
             });
         </script>
