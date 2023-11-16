@@ -90,6 +90,10 @@ https://<your_tenant>/idaas/mtfim/sps/idaas/login?runtime=true&normalLogin=true
 
 Again, you shouldn't need to do this, but its a stop-gap in case something goes wrong.
 
+# Combining workflows
+
+When deploying a workflow like this one, it is recommended you also consider combining it with the [solicited passkey registration workflow](../passkey_registration/) triggered by an access policy. If a user performs username/password login, then the solicited passkey registration workflow will guide them through the (opt-in) process of registering a passkey, allowing their next login to use that passkey for a safer and easier authentication experience.
+
 # Runtime example
 
 The screenshots below are taken from a runtime example where the workflow has been integrated into the login page as suggested above.
