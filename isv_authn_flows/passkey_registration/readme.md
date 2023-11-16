@@ -182,4 +182,4 @@ After accessing the end-user portal page for your tenant, and logging in with a 
 
 # TODO
 
-Update logout success page to delete cookie.
+Replace cookie-based state sharing mechanism with server-side CEL API for key/value storage when available.
