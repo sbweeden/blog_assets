@@ -26,14 +26,29 @@
         var attestationOptions = @ATTESTATION_OPTIONS@
         var errorMessage = "@ERROR_MESSAGE@";
         var showUseAnotherMethod = @SHOW_USE_ANOTHER_METHOD@;
-		var enrollCredInfo;
-		var nicknameError = "$FIDO2_ENROLLMENT_NAME_ERROR$";
-		var isFallback = @FALLBACK@;
+		
+        var enrollCredInfo;
+		    var nicknameError = "$FIDO2_ENROLLMENT_NAME_ERROR$";
+		    var isFallback = @FALLBACK@;
         //END NON-TRANSLATABLE
 
         /************************** Passkey enrolement customization ***********************/
         // Added for platform passkey enrolment
-        attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
+
+        //
+        // TODO - when ISV provides an indication of authenticatorAttachment in the runtime flow,
+        // selectively choose to solicit the platform passkey if the attachment in the current
+        // authentication flow was NOT platform.
+        // This will support the scenario of the user first performing the cross-device 
+        // authentication flow then updating to a local platform passkey. 
+        //
+        // For now though, accept all passkeys since we only trigger solicitied registration
+        // based on whether or not the user first logged in with FIDO at all.
+        //
+
+        // If you only want to solicit registration of the platform authenticator, uncomment this line
+        //attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
+
         attestationOptions.authenticatorSelection.residentKey = "required";
 
         // remove the excludeCredentials list, and allow overwrite of the platform authenticator registration
@@ -61,14 +76,14 @@
          @PAGE_HEADER@
          <div style="border-bottom: 1px solid #dde1e6; margin-bottom: 20px; padding-bottom: 1rem">
             <h1 style="font-size: 170%; text-align: left; padding-bottom: .5rem">
-               <!-- $FIDO2_ENROLLMENT_HEADING$ -->Add a platform passkey
+               <!-- $FIDO2_ENROLLMENT_HEADING$ --><div id="enrollmentHeadingDiv"></div>
             </h1>
             <!-- <h2 id="prepare" style="display: block; text-align: left;">$FIDO2_ENROLLMENT_PREPARE_DEVICE$</h2> -->
             <h2 id="name-input" style="display: none; text-align: left;">$FIDO2_ENROLLMENT_NAME_DEVICE$</h2>
          </div>
         <div id="instructions">
          <div class="content" id="list-instructions">
-            <div class="instructions">Use your device unlock mechanism to authenticate on the web<!-- $FIDO2_ENROLLMENT_PREPARE_DEVICE_INSTRUCTION$ --></div>
+            <div id="instructionsTextDiv" class="instructions"><!-- $FIDO2_ENROLLMENT_PREPARE_DEVICE_INSTRUCTION$ --></div>
             <!--
             <ol class="bx--list--ordered" style="list-style-position: inside; margin-top: var(--cds-spacing-05,1rem);">
 			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_PLUG_DEVICE_INSTRUCTION$</li>
@@ -978,8 +993,6 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
      <script>
          // acknowledegement for this idea to: https://passkeynametool.identitystandards.ms/
 
-
-
          //
          // see github repo https://github.com/passkeydeveloper/passkey-authenticator-aaguids
          // this is combined_aaguid.json with all the icon stuff removed to keep it smaller.
@@ -1030,6 +1043,18 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
          }
      </script>
      <script>
+         // Change some titles and instructions based on whether or not we are          
+         // soliciting registration for the platform authenticator or any passkey provider
+         window.addEventListener("load", () => {
+             if (attestationOptions.authenticatorSelection.authenticatorAttachment == "platform") {
+                 document.getElementById("enrollmentHeadingDiv").innerText = "Add a platform passkey";
+                 document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism to authenticate on the web ";
+             } else {
+                 document.getElementById("enrollmentHeadingDiv").innerText = "Add a passkey";
+                 document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism, a mobile device, or a hardware security key to authenticate on the web ";
+             }
+         });
+          
          // use a MutationObserver to trigger passkey nickname generation and automatic population into the 
          // nickname entry field once the enroll element display style is set to 'block'. This is the only
          // way I could figure out how to know when the registration response was available for introspection.
