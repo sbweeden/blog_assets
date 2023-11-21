@@ -7,7 +7,8 @@ Ostensibly it checks whether the user has logged in already with a passkey, and 
 There's a little more to it than that - here are a list of key features:
   - The user can opt out either one-time, or permanently, and localStorage is used to remember permanent decisions for future executions of the workflow.
   - The workflow has logic to only be run once-per-session (cookie-based).
-  - The workflow will not solicit passkey registration if the user performed FIDO login as their first factor login in the session. In future this should be fine-tuned to only skip solicited registration if the user logged in with a _platform_ passkey in the current session. That would allow solicited passkey registration after either hardware security key or cross-device (hybrid) authentication flows.
+  - The workflow currently solicits registration of *any* passkey - either the platform authenticator, or a cross-platform authenticator.
+  - At present, the workflow will not solicit passkey registration if the user performed login with any FIDO authenticator as their first factor login in the session. In future this will be fine-tuned to only skip solicited registration if the user logged in with a _platform_ passkey in the current session. That would allow solicited passkey registration of the platform authenticator after either hardware security key or cross-device (hybrid) authentication flows. 
 
 Logically, the workflow behaves as shown in the following flowchart:
 
