@@ -1,0 +1,28 @@
+<html>
+<head>
+	<script type="text/javascript" src="/sps/static/duoauthn.js" id="duo_login_tags">
+	    @ESCAPED_LOGIN_JSON@
+	</script>
+	<script type="text/javascript">
+	</script>
+</head>
+<body>
+	Welcome: <b><div id="usernameDiv" style="display:inline-block"></div></b>
+	<p />
+	<div id="contentDiv" style="display:none">
+		Please check your phone for a transaction approval...
+		<br />
+		<br />Last polled: <div id="pollTimestamp" style="display:inline-block"></div>
+		<br />Last status: <div id="pollStatus" style="display:inline-block"></div>
+		
+		<form id="loginform" method="POST" action="@ACTION@">
+			<input type="hidden" name="operation" value="verify" />
+			<input type="hidden" id="txnId" name="txnId" value="" />
+			<input type="hidden" id="completeAuthn" name="completeAuthn" value="true" />
+		</form>
+		<p />
+	</div>
+	<div id="errorDiv" style="display:none"></div>
+</body>
+</html>
+
