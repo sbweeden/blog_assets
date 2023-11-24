@@ -108,8 +108,12 @@ function loginStartup() {
 	// decode the provided macro holder JSON
 	let loginPageJSON = JSON.parse(htmlDecode(document.getElementById('duo_login_tags').textContent));
 	
-	// populate the username and transactionId if present
+	// populate the username, correlationID and transactionId if present
 	document.getElementById("usernameDiv").innerHTML = htmlEncode(loginPageJSON.username);
+	if (loginPageJSON["correlationID"] != null) {
+		document.getElementById("correlationID").innerHTML = htmlEncode(loginPageJSON.correlationID);
+	}
+
 	if (loginPageJSON["txnId"] != null) {
 		document.getElementById("txnId").value = htmlEncode(loginPageJSON.txnId);
 	}

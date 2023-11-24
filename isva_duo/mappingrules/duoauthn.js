@@ -4,6 +4,9 @@ importPackage(Packages.com.ibm.security.access.httpclient);
 // this gets used throughout
 var username = getInfomapUsername();
 
+// human-visible correlation id - only used when initiating a new authentication
+var correlationID = generateRandom(4);
+
 function getHttpClient() {
     return new HttpClientV2();
 }
@@ -39,7 +42,9 @@ function doPreAuth() {
 
 function doAuth() {
     let methodName = "doAuth";
-    let requestVars = generateAuth(username);
+
+    let pushinfo = "correlation=" + correlationID;
+    let requestVars = generateAuth(username, pushinfo);
     let httpClient = getHttpClient();
 
     let headers = new Headers();
@@ -186,9 +191,12 @@ try {
                 if (preAuthResponseObj.response.result == "auth") {
                     // if the user has at least one device with auto mode, proceed with that
                     if (hasDeviceWithAuto(preAuthResponseObj)) {
-                        // kick off "auto" mode, which uses first device and best mech
+                        // kick off "auto" mode, which uses first device and best mech                        
                         hr = doAuth();
                         let authResponseObj = checkDuoStatOK(hr);
+
+                        // something to diplay to the user on the browser for correlation with the push
+                        loginJSON.correlationID = correlationID;
                         
                         // this will be returned in page for polling the result
                         loginJSON.txnId = authResponseObj.response.txid;

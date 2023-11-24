@@ -18,6 +18,16 @@ function debugLog(str) {
     }
 }
 
+function generateRandom(len) {
+    // generates a random string of alpha-numerics
+    var chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    var result = "";
+    for (var i = 0; i < len; i++) {
+            result = result + chars.charAt(Math.floor(Math.random()*chars.length));
+    }
+    return result;
+}
+
 /**
  * Utility to get the user display name from the the Infomap context
  */
@@ -158,12 +168,13 @@ function generatePreAuth(duouser) {
         duoIntegrationKey);
 }
 
-function generateAuth(duouser) {
+function generateAuth(duouser,pushinfo) {
     let params = {
         username: duouser,
         factor: "auto",
         device: "auto",
-        async: "1"
+        async: "1",
+        pushinfo: pushinfo
     };
 
     let now = (new Date()).toUTCString();
