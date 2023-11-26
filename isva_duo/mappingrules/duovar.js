@@ -16,7 +16,7 @@ var duoAPIEndpoint = "api-xxxxxxxx.duosecurity.com";
 //    no devices in auto mode, the user will be sent a page to prompt for device/method of 2FA.
 //
 // enabledCapabilities - Lists the capabilities that the user may use for 2FA. Does not need to include "auto" if authMode is 
-//    enabled. 
+//    enabled. Can be one or more of "push", "sms", "phone", "mobile_otp"
 //
 
 //
