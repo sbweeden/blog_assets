@@ -81,7 +81,9 @@ function poll() {
 			// if we were denied, show that as an error, otherwise update
 			// the displayed status and start a new timer to re-poll
 			if (data.loginJSON.lastTxnStatus == "deny") {
-				hideDiv("contentDiv");
+				hideDiv("pollDiv");
+				hideDiv("choiceDiv");
+				hideDiv("passcodeDiv");
 				document.getElementById("errorDiv").innerHTML = "Request denied";
 				showDiv("errorDiv");
 			} else {
@@ -103,17 +105,61 @@ function poll() {
 	});
 }
 
+function populateOptions(promptOptions) {
+	let optionsHTML = "<table border=\"1\">";
+	optionsHTML += "<tr><th>Select</th><th>Device</th><th>Method></th></tr>";
+	for (let i = 0; i < promptOptions.length; i++) {
+		let choiceIndex = i;
+		let c = promptOptions[i].capability;
+		let methodStr = "";
+		if (c == "push") {
+			methodStr = "Push notification";
+		} else if (c == "sms") {
+			methodStr = "SMS to " + promptOptions[i].number;
+		} else if (c == "phone") {
+			methodStr = "Phone call to " + promptOptions[i].number;
+		} else if (c == "mobile_otp") {
+			methodStr = "Mobile OTP";
+		} else {
+			methodStr = "Unknown capability: " + c;
+			choiceIndex = -1;
+		}
+		
+		optionsHTML += "<tr>";
+		optionsHTML += "<td><input type=\"radio\" name=\"promptOption\" value=\""+choiceIndex+"\"" + (i == 0 ? " checked" : "") + " /></td>";
+		optionsHTML += "<td>"+htmlEncode(promptOptions[i].display_name)+"</td>";
+		optionsHTML += "<td>"+htmlEncode(methodStr)+"</td>";
+		optionsHTML += "</tr>";
+	}
+	optionsHTML += "</table>";
+	document.getElementById("choiceContent").innerHTML = optionsHTML;
+}
+
+function submitChoice() {
+	document.getElementById("choiceIndex").value = document.querySelector('input[name="promptOption"]:checked').value;
+	document.getElementById("choiceform").submit();
+}
+
 // onLoad function
 function loginStartup() {
 	// decode the provided macro holder JSON
 	let loginPageJSON = JSON.parse(htmlDecode(document.getElementById('duo_login_tags').textContent));
 	
-	// populate the username, correlationID and transactionId if present
+	// populate the username
 	document.getElementById("usernameDiv").innerHTML = htmlEncode(loginPageJSON.username);
-	if (loginPageJSON["correlationID"] != null) {
-		document.getElementById("correlationID").innerHTML = htmlEncode(loginPageJSON.correlationID);
+
+	// if there are promptOptions, then this is 2FA selection step, so populate that
+	if (loginPageJSON.promptOptions != null) {
+		populateOptions(loginPageJSON.promptOptions);
 	}
 
+	// populate correlationID and transactionId if present - these will be present if authentication has
+	// been kicked off
+	if (loginPageJSON["correlationID"] != null) {
+		document.getElementById("correlationID").innerHTML = "with corellation ... " + htmlEncode(loginPageJSON.correlationID);
+	} else {
+		document.getElementById("correlationID").innerHTML = "...";
+	}
 	if (loginPageJSON["txnId"] != null) {
 		document.getElementById("txnId").value = htmlEncode(loginPageJSON.txnId);
 	}
@@ -121,14 +167,28 @@ function loginStartup() {
 	// populate the poll timestamp
 	updatePollTimestamp(loginPageJSON["lastTxnStatus"]);
 	
-	// if there is an error message, display it, otherwise show the contentDiv
+	// if there is an error message, display it, otherwise show either the choiceDiv or the pollDiv
 	// and kick off polling
 	if (loginPageJSON.errmsg != null) {
 		document.getElementById("errorDiv").innerHTML = htmlEncode(loginPageJSON.errmsg);
 		showDiv("errorDiv");
+	}
+
+	// one of these can happen even if there is an error to display
+	if (loginPageJSON.promptOptions != null) {
+		// show 2FA options for selection
+		showDiv("choiceDiv");
+		document.getElementById("choiceButton").addEventListener("click", submitChoice);
+	} else if (loginPageJSON["txnId"] != null) {
+		// authentication must be underway - show that and start polling
+		showDiv("pollDiv");
+		window.setTimeout(poll, pollTime);	
+	} else if (loginPageJSON["promptForPasscode"]) {
+		showDiv("passcodeDiv");
 	} else {
-		showDiv("contentDiv");
-		window.setTimeout(poll, pollTime);
+		// unknown state
+		document.getElementById("errorDiv").innerHTML = htmlEncode("Server returned unexpected response");
+		showDiv("errorDiv");
 	}
 }
 

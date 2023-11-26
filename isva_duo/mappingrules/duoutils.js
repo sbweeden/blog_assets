@@ -152,10 +152,14 @@ function generateCheck() {
         duoIntegrationKey);
 }
 
-function generatePreAuth(duouser) {
+function generatePreAuth(duouser, trustedDeviceToken) {
     let params = {
         username: duouser
     };
+    // trustedDeviceToken is optional
+    if (trustedDeviceToken != null) {
+        params["trusted_device_token"] = trustedDeviceToken;
+    }
 
     let now = (new Date()).toUTCString();
     return duoSign(
@@ -168,14 +172,25 @@ function generatePreAuth(duouser) {
         duoIntegrationKey);
 }
 
-function generateAuth(duouser,pushinfo) {
+function generateAuth(async, duouser,factor,device,pushinfo,passcode) {
     let params = {
         username: duouser,
-        factor: "auto",
-        device: "auto",
-        async: "1",
-        pushinfo: pushinfo
+        factor: factor
     };
+    if (async) {
+        params["async"] = "1";
+    }
+
+    // optionals
+    if (device != null) {
+        params["device"] = device;
+    }
+    if (pushinfo != null) {
+        params["pushinfo"] = pushinfo;
+    }
+    if (passcode != null) {
+        params["passcode"] = passcode;
+    }
 
     let now = (new Date()).toUTCString();
     return duoSign(
