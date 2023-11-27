@@ -107,7 +107,7 @@ function poll() {
 
 function populateOptions(promptOptions) {
 	let optionsHTML = "<table border=\"1\">";
-	optionsHTML += "<tr><th>Select</th><th>Device</th><th>Method></th></tr>";
+	optionsHTML += "<tr><th>Select</th><th>Device</th><th>Method</th></tr>";
 	for (let i = 0; i < promptOptions.length; i++) {
 		let choiceIndex = i;
 		let c = promptOptions[i].capability;
@@ -186,9 +186,11 @@ function loginStartup() {
 	} else if (loginPageJSON["promptForPasscode"]) {
 		showDiv("passcodeDiv");
 	} else {
-		// unknown state
-		document.getElementById("errorDiv").innerHTML = htmlEncode("Server returned unexpected response");
-		showDiv("errorDiv");
+		// unknown state if there wasn't an error message
+		if (loginPageJSON.errmsg == null) {
+			document.getElementById("errorDiv").innerHTML = htmlEncode("Server returned unexpected response");
+			showDiv("errorDiv");	
+		}
 	}
 }
 
