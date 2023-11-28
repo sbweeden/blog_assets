@@ -218,3 +218,19 @@ function generateAuthStatus(txnId) {
         duoSecretKey,
         duoIntegrationKey);
 }
+
+function generateEnroll(username) {
+    let params = {
+        username: username
+    };
+
+    let now = (new Date()).toUTCString();
+    return duoSign(
+        now,
+        "POST",
+        duoAPIEndpoint,
+        "/auth/v2/enroll",
+        params,
+        duoSecretKey,
+        duoIntegrationKey);
+}
