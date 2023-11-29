@@ -196,9 +196,11 @@
                     userHandle: base64URLEncodeArrayBuffer(assertion.response.userHandle)
                 },
                 type: assertion.type,
-                getClientExtensionResults: assertion.getClientExtensionResults(),
-                authenticatorAttachment: (assertion.authenticatorAttachment || "")
+                getClientExtensionResults: assertion.getClientExtensionResults()
             };
+            if (assertion.authenticatorAttachment !== undefined) {
+                assertionResponseObject["authenticatorAttachment"] = assertion.authenticatorAttachment;
+            }
 
             processAssertionResponse(assertionResponseObject);
         }).catch(function (err) {
