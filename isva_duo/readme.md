@@ -44,6 +44,7 @@ Upload each of the files in the `templatepages` directory to your ISVA system, u
 The mapping rules should be uploaded under AAC -> Mapping Rules, following the naming convention shown in the following table. Mapping rule names are case sensitive, and do matter because some mapping rules are imported into others. All mapping rules should be imported with the Category set to InfoMap.
 
 | Filename | Mapping Rule Name | Notes |
+| -------- | ----------------- | ----- |
 | kjur.js | KJUR | This is open source - the [jsrsasign](https://github.com/kjur/jsrsasign) library, and comments to that effect are included in the file. It provides the HmacSha512 implementation used to sign parameters and include in the Authorization header used in Duo API calls. You may wish to refresh this library from time to time, but note there is some custom javascript at the top of the mapping rule that I have included to allow the rule to load into ISVA as it is a restricted Javascript environment and doesn't have all the same global environment attributes as a browser or Node.JS.  |
 | duovars.js | duovars | Edit this file and include your own Duo application variables for the `Integration key`, `Secret key`, and `API hostname`. There is another configuration object in this file that you might wish to fine-tune called `duoConfig`. There are comprehensive comments in the file on what the parameters are, and how they influence the authentication experience. |
 | duoutils.js | duoutils | Utility functions for InfoMaps in general, plus functions to build the signature required for Duo APIs. It even includes a capability to show you (via adding debug trace) what the equivalent `curl` command would look like for an API call to Duo. I found this useful during development for testing. |
@@ -55,13 +56,13 @@ Be sure to deploy all pending changes after uploading the page templates and map
 
 This is very straight forward for anyone that has previously set up an InfoMap authentication mechanism. The following screenshots show exactly how it is accomplished:
 
-![duo_authn_mech](https://github.com/sbweeden/blog_assets/master/isva_duo/images/duo_authn_mech.png "Authentication Mechanism")
+![duo_authn_mech](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_authn_mech.png?raw=true "Authentication Mechanism")
 
 ### Configure the authentication mechanism
 
 Similarly, follow these steps for configuring the authentication policy:
 
-![duo_authn_policy](https://github.com/sbweeden/blog_assets/master/isva_duo/images/duo_authn_policy.png "Authentication Policy")
+![duo_authn_policy](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_authn_policy.png?raw=true "Authentication Policy")
 
 
 ## Running the flow
@@ -72,11 +73,11 @@ Of course you would normally instrument this into a step-up login flow, or an au
 
 This policy is a second-factor authentication policy, and requires that you are first authenticated. Authentication may be achieved using any authentication method to the web reverse proxy including forms-based login, or another AAC policy. You can even include the UsernamePassword mechanism in the duoauthn policy prior to the InfoMap mechanism if you wish. Bottom line - make sure you are logged in as someone before you access the InfoMap mechanism or you will see an error like this:
 
-![duo_unauthenticated_error](https://github.com/sbweeden/blog_assets/master/isva_duo/images/duo_unauthenticated_error.png "Unauthenticated error")
+![duo_unauthenticated_error](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_unauthenticated_error.png?raw=true "Unauthenticated error")
 
 Next, if you are logged in but not already registered in Duo (and user enrollment is enabled in Duo), you might see an error that looks like this:
 
-![duo_enrollment_error](https://github.com/sbweeden/blog_assets/master/isva_duo/images/duo_enrollment_error.png "Enrollment error")
+![duo_enrollment_error](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_enrollment_error.png?raw=true "Enrollment error")
 
 You can open this URL in the browser and complete enrollment. The mechanism could of course be modified to allow this to be a hyperlink, opened in a new tab, etc, however that is just not something I implemented in the example scenario. Not hard to do though.
 
@@ -92,13 +93,13 @@ duoConfig = {
 
 Provided the user has a registration suitable for auto mode (e.g. mobile push), and if `autoMode` is set to `true` as shown above, the mechanism will immediately initiate that form of authentication. On the browser you will see messages indicating that polling is taking place waiting for the transaction to be approved (or denied) on the mobile phone:
 
-![duo_push_polling](https://github.com/sbweeden/blog_assets/master/isva_duo/images/duo_push_polling.png "Polling")
+![duo_push_polling](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_push_polling.png?raw=true "Polling")
 
 The user can approve or deny the transaction at this point, and the mechanism will either succeed or show a denied error (same if the transaction times out).
 
 Things get a little more interesting if `autoMode` is set to `false`. In that case the users 2FA capabilities will be discovered, and a filter applied based on the setting of the `enabledCapabilities` configuration property, and the remaining options sent back to the browser for the user to select which capability they wish to use (or an error if there are no matching capabilities):
 
-![duo_capabilities](https://github.com/sbweeden/blog_assets/master/isva_duo/images/duo_capabilities.png "Capabilities")
+![duo_capabilities](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_capabilities.png?raw=true "Capabilities")
 
 I am not going to enumerate the experience on all these capabilities, other than to say that each should work with the mechanism as coded. The SMS and Mobile OTP capabilities result in a prompt to the user to enter a one-time password, which is then sent back to the mechanism and validated via an API call to Duo. Push notification we have already seen, and Phone call, are very similar, and both result in a polling activity until such time as the user has approved or denied the transaction, or a timeout occurs.
 
