@@ -19,8 +19,8 @@ function debugLog(str) {
 }
 
 function generateRandom(len) {
-    // generates a random string of alpha-numerics
-    var chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    // generates a random string of digits - you can change the character set if you wish
+    var chars = "0123456789";
     var result = "";
     for (var i = 0; i < len; i++) {
             result = result + chars.charAt(Math.floor(Math.random()*chars.length));

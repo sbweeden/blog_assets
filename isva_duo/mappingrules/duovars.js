@@ -19,9 +19,9 @@ var duoAPIEndpoint = "api-xxxxxxxx.duosecurity.com";
 //    enabled. Can be one or more of "push", "sms", "phone", "mobile_otp"
 //
 
-//
+// These seem like reasonable defaults
 duoConfig = {
-    supportRememberedDevices: true,
+    supportRememberedDevices: false,
     autoMode: true,
     enabledCapabilities: [ "push", "sms", "phone", "mobile_otp" ]
 }

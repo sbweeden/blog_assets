@@ -156,7 +156,7 @@ function loginStartup() {
 	// populate correlationID and transactionId if present - these will be present if authentication has
 	// been kicked off
 	if (loginPageJSON["correlationID"] != null) {
-		document.getElementById("correlationID").innerHTML = "with corellation ... " + htmlEncode(loginPageJSON.correlationID);
+		document.getElementById("correlationID").innerHTML = "with correlation ... " + htmlEncode(loginPageJSON.correlationID);
 	} else {
 		document.getElementById("correlationID").innerHTML = "...";
 	}
