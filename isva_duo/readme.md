@@ -58,7 +58,7 @@ This is very straight forward for anyone that has previously set up an InfoMap a
 
 ![duo_authn_mech](https://github.com/sbweeden/blog_assets/blob/master/isva_duo/images/duo_authn_mech.png?raw=true "Authentication Mechanism")
 
-### Configure the authentication mechanism
+### Configure the authentication policy
 
 Similarly, follow these steps for configuring the authentication policy:
 
