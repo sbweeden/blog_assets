@@ -41,7 +41,7 @@ The mapping rules should be uploaded under AAC -> Mapping Rules, following the n
 | Filename | Mapping Rule Name | Notes |
 | -------- | ----------------- | ----- |
 | kjur.js | KJUR | This is open source - the [jsrsasign](https://github.com/kjur/jsrsasign) library, and comments to that effect are included in the file. It provides the JWT implementation used to create and validate client assertion and id_token JWTs used in the solution. You may wish to refresh this library from time to time, but note there is some custom javascript at the top of the mapping rule that I have included to allow the rule to load into ISVA as it is a restricted Javascript environment and doesn't have all the same global environment attributes as a browser or Node.JS.  |
-| duoauthnUniversalPrompt.js | duoauthnUniversalPrompt | Edit this file and update values for the following variables right near the top: <br>`let duoWebSDKClientId = "YOUR_VALUE";`<br>`let duoWebSDKClientSecret = "YOUR_VALUE";`<br>`let duoAPIEndpoint = "api-XXXXXXXX.duosecurity.com";`<br>`let pointOfContact = "https://your_webseal_hostname/mga";` |
+| duoauthnUniversalPrompt.js | duoauthnUniversalPrompt | Edit this file and update values for the following variables right near the top. There are comments explaining these values in the file: <br>`let duoWebSDKClientId = "YOUR_VALUE";`<br>`let duoWebSDKClientSecret = "YOUR_VALUE";`<br>`let duoAPIEndpoint = "api-XXXXXXXX.duosecurity.com";`<br>`let pointOfContact = "https://your_webseal_hostname/mga";` |
 
 Be sure to deploy all pending changes after uploading the page templates and mapping rules.
 
