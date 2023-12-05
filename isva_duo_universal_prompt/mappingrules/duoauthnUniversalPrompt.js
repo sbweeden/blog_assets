@@ -108,7 +108,11 @@ function doTokenExchange(code, authsvcstate) {
     let headers = new Headers();
     let tokenEndpoint = "https://" + duoAPIEndpoint + "/oauth/v1/token";
 
-    // rebuild this
+    //
+    // rebuild the redirectURI - note this has to follow exactly what was done
+    // in the login.html server-side template page scripting when building the
+    // redirect_uri that is included in the request JWT
+    //
     let redirectURI = pointOfContact + "/sps/authsvc/policy/duoUniversalPrompt" +
     "?operation=verify" +
     "&authsvcstate=" + authsvcstate + 
