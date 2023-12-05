@@ -100,14 +100,20 @@ function buildClientAssertionJWT(aud) {
     return KJUR.jws.JWS.sign(alg, JSON.stringify(jwtHeader), JSON.stringify(jwtClaims), duoWebSDKClientSecret);
 }
 
-function doTokenExchange(code) {
+function doTokenExchange(code, authsvcstate) {
     let methodName = "doTokenExchange";
 
     let httpClient = getHttpClient();
 
     let headers = new Headers();
     let tokenEndpoint = "https://" + duoAPIEndpoint + "/oauth/v1/token";
-    let redirectURI = pointOfContact + "/sps/authsvc/policy/duoUniversalPrompt";
+
+    // rebuild this
+    let redirectURI = pointOfContact + "/sps/authsvc/policy/duoUniversalPrompt" +
+    "?operation=verify" +
+    "&authsvcstate=" + authsvcstate + 
+    "&StateId=" + authsvcstate;
+
     let client_assertion = buildClientAssertionJWT(tokenEndpoint);
 
     let objParams = {
@@ -163,30 +169,6 @@ function validateTokenResponse(tokenResponseObj, u) {
     return result;
 }
 
-function buildRequestJWT(u,s,r) {
-    // 5 mins
-    let expires = Math.round((new Date()).getTime() / 1000) + 300;
-
-    let alg = "HS256";
-
-    let jwtClaims = {
-        response_type: "code",
-        scope: "openid",
-        exp: ''+expires,
-        client_id: duoWebSDKClientId,
-        redirect_uri: r,
-        state: s,
-        duo_uname: u
-    };
-
-    let jwtHeader = { 
-        alg: alg,
-        typ: "JWT"
-    };
-
-    return KJUR.jws.JWS.sign(alg, JSON.stringify(jwtHeader), JSON.stringify(jwtClaims), duoWebSDKClientSecret);
-}
-
 // ****************************************************************************
 // ******************** MAIN PROCESSING STARTS HERE  **************************
 // ****************************************************************************
@@ -194,7 +176,8 @@ function buildRequestJWT(u,s,r) {
 debugLog("duoauthnUniversalPrompt start");
 let result = false;
 let loginJSON = {};
-let authorizeURL = null;
+let authorizeURLTemplate = null;
+let oidcState = null;
 
 // this gets used throughout
 let username = getInfomapUsername();
@@ -208,13 +191,16 @@ try {
         // get code and state from request if they exist
         let aznCode = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter", "code");
         let requestState = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter", "state");
+        let authsvcState = context.get(Scope.REQUEST, "urn:ibm:security:asf:request:parameter", "authsvcstate");
 
         // is this the response from Duo OIDC?
-        if (aznCode != null && aznCode.length() > 0 && requestState != null && requestState.length() > 0) {
+        if (aznCode != null && aznCode.length() > 0 
+            && requestState != null && requestState.length() > 0
+            && authsvcState != null && authsvcState.length() > 0) {
             // retrieve session state and compare
             let sessionState = IDMappingExtUtils.getSPSSessionData("oidcState");
             if (sessionState != null && sessionState.equals(requestState)) {
-                let hr = doTokenExchange(''+aznCode);
+                let hr = doTokenExchange(''+aznCode, ''+authsvcState);
                 let responseObj = null;
                 if (hr != null && hr.getCode() == 200) {
                     responseObj = JSON.parse(''+hr.getBody());
@@ -247,19 +233,19 @@ try {
             // generate a new state parameter and save in session - note that we do not rely on authsvc state for this
             // since we do not use the authsvc StateId parameter in the redirect URI. Instead this InfoMap operates
             // only based on the SPS session cookie state.
-            let state = generateRandom(64);
-            IDMappingExtUtils.setSPSSessionData("oidcState", state);
+            oidcState = generateRandom(64);
+            IDMappingExtUtils.setSPSSessionData("oidcState", oidcState);
 
             // build the redirect URI - this is the authsvc policy URL
             let redirectURI = pointOfContact + "/sps/authsvc/policy/duoUniversalPrompt";
 
-            // build the request JWT
-            let requestJWT = buildRequestJWT(username, state, redirectURI);
-
-            authorizeURL = "https://" + duoAPIEndpoint + "/oauth/v1/authorize?" + 
+            // this is the start of the authorize URL redirect however
+            // it will be augmented with extra parameters (specifically the request JWT)
+            // in server-side template page scripting in the login.html page because
+            // in this InfoMap we do not yet have access to the next StateId value
+            authorizeURLTemplate = "https://" + duoAPIEndpoint + "/oauth/v1/authorize?" + 
                 "response_type=code" + 
-                "&client_id=" + duoWebSDKClientId + 
-                "&request=" + requestJWT;
+                "&client_id=" + duoWebSDKClientId;
         }
     } else {
         loginJSON.username = "unauthenticated";
@@ -270,8 +256,18 @@ try {
 }
 
 // establish page to return with macros
-if (authorizeURL != null) {
-    macros.put("@AUTHORIZE_URL@", authorizeURL);
+if (authorizeURLTemplate != null) {
+    macros.put("@AUTHORIZE_URL_TEMPLATE@", authorizeURLTemplate);
+    macros.put("@OIDC_STATE@", oidcState);
+
+    // we also share these with the server-side template page scripting
+    // so that config only lives in one place. They are needed to build
+    // the request JWT
+    macros.put("@USERNAME@", username);
+    macros.put("@duoWebSDKClientId@", duoWebSDKClientId);
+    macros.put("@duoWebSDKClientSecret@", duoWebSDKClientSecret);
+    macros.put("@duoAPIEndpoint@", duoAPIEndpoint);
+    macros.put("@pointOfContact@", pointOfContact);    
 }
 macros.put("@ESCAPED_LOGIN_JSON@", JSON.stringify(loginJSON));
 page.setValue("/authsvc/authenticator/duo_universal_prompt/login.html");
