@@ -14,8 +14,7 @@ I am not going to cover Duo application configuration in this article, however i
 
 ## Scenario and Assets Overview
 
-The assets provided in the article implement an authentication mechanism that leverages the Duo OAuth API (actually OpenID Connect) to redirect to Duo to prompt for 2FA and complete the authentication process. This is quite different from using an API-only approach. There are pro's and con's to each approach. One of the reasons you might want to use OIDC and the Duo Universal Prompt is that WebAuthn (registered at Duo) can be used as an authentication method. Also inline-registraiton is built in (when enabled) with the Duo Universal Prompt. Again the trade-off is that your website loses control of the UI when redirecting for OIDC SSO. 
-
+The assets provided in the article implement an authentication mechanism that leverages the [Duo OIDC Auth API](https://duo.com/docs/oauthapi) to redirect to Duo to prompt for 2FA and complete the authentication process. This is quite different from using an API-only approach. There are pro's and con's to each approach. One of the reasons you might want to use OIDC and the Duo Universal Prompt is that WebAuthn (registered at Duo) can be used as an authentication method. Also inline-registraiton is built in (when enabled) with the Duo Universal Prompt. The trade-off is that your website loses control of the UI when redirecting for OIDC SSO. 
 
 Assets used for this integration can be found [here in my blog_assets GitHub repository](https://github.com/sbweeden/blog_assets/tree/master/isva_duo_universal_prompt).
 
@@ -42,7 +41,13 @@ The mapping rules should be uploaded under AAC -> Mapping Rules, following the n
 | Filename | Mapping Rule Name | Notes |
 | -------- | ----------------- | ----- |
 | kjur.js | KJUR | This is open source - the [jsrsasign](https://github.com/kjur/jsrsasign) library, and comments to that effect are included in the file. It provides the JWT implementation used to create and validate client assertion and id_token JWTs used in the solution. You may wish to refresh this library from time to time, but note there is some custom javascript at the top of the mapping rule that I have included to allow the rule to load into ISVA as it is a restricted Javascript environment and doesn't have all the same global environment attributes as a browser or Node.JS.  |
-| duoauthnUniversalPrompt.js | duoauthnUniversalPrompt | Edit this file and include your own Duo application variables for the `Client ID`, `Client secret`, and `API hostname` right near the top. |
+| duoauthnUniversalPrompt.js | duoauthnUniversalPrompt | Edit this file and update values for the following variables right near the top: 
+```
+let duoWebSDKClientId = "YOUR_VALUE";
+let duoWebSDKClientSecret = "YOUR_VALUE";
+let duoAPIEndpoint = "api-XXXXXXXX.duosecurity.com";
+let pointOfContact = "https://your_webseal_hostname/mga";
+``` |
 
 Be sure to deploy all pending changes after uploading the page templates and mapping rules.
 
