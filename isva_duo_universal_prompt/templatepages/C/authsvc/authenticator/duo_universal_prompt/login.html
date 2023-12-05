@@ -1,0 +1,19 @@
+<%
+    // if there is an AUTHORIZE_URL macro defined, redirect to it
+    if (templateContext.macros["@AUTHORIZE_URL@"] != null && templateContext.macros["@AUTHORIZE_URL@"].length > 0) {
+        templateContext.response.sendRedirect(templateContext.macros["@AUTHORIZE_URL@"]);
+    }
+%>
+<html>
+<head>
+	<script type="text/javascript" src="/sps/static/duoauthn_universal_prompt.js" id="duo_login_tags">
+	    @ESCAPED_LOGIN_JSON@
+	</script>
+</head>
+<body>
+	Welcome: <b><div id="usernameDiv" style="display:inline-block"></div></b>
+	<p />
+	<div id="errorDiv" style="display:none"></div>
+</body>
+</html>
+

@@ -30,9 +30,11 @@ function showDiv(id) {
 }
 
 function updatePollTimestamp(status) {
-	let nowStr = (new Date()).toUTCString();
-	document.getElementById("pollTimestamp").innerText = nowStr;
-	document.getElementById("pollStatus").innerText = status;
+	if (document.getElementById("pollTimestamp") != null && document.getElementById("pollStatus") != null) {
+		let nowStr = (new Date()).toUTCString();
+		document.getElementById("pollTimestamp").innerText = nowStr;
+		document.getElementById("pollStatus").innerText = status;	
+	}
 }
 
 function buildPollURL() {
@@ -155,13 +157,15 @@ function loginStartup() {
 
 	// populate correlationID and transactionId if present - these will be present if authentication has
 	// been kicked off
-	if (loginPageJSON["correlationID"] != null) {
-		document.getElementById("correlationID").innerHTML = "with correlation ... " + htmlEncode(loginPageJSON.correlationID);
-	} else {
-		document.getElementById("correlationID").innerHTML = "...";
-	}
-	if (loginPageJSON["txnId"] != null) {
-		document.getElementById("txnId").value = htmlEncode(loginPageJSON.txnId);
+	if (document.getElementById("correlationID") != null) {
+		if (loginPageJSON["correlationID"] != null) {
+			document.getElementById("correlationID").innerHTML = "with correlation ... " + htmlEncode(loginPageJSON.correlationID);
+		} else {
+			document.getElementById("correlationID").innerHTML = "...";
+		}
+		if (loginPageJSON["txnId"] != null) {
+			document.getElementById("txnId").value = htmlEncode(loginPageJSON.txnId);
+		}	
 	}
 
 	// populate the poll timestamp
@@ -169,7 +173,7 @@ function loginStartup() {
 	
 	// if there is an error message, display it, otherwise show either the choiceDiv or the pollDiv
 	// and kick off polling
-	if (loginPageJSON.errmsg != null) {
+	if (document.getElementById("errorDiv") != null && loginPageJSON.errmsg != null) {
 		document.getElementById("errorDiv").innerHTML = htmlEncode(loginPageJSON.errmsg);
 		showDiv("errorDiv");
 	}
