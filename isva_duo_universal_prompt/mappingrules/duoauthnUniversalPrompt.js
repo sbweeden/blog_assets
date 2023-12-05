@@ -108,12 +108,16 @@ function doTokenExchange(code, authsvcstate) {
     let headers = new Headers();
     let tokenEndpoint = "https://" + duoAPIEndpoint + "/oauth/v1/token";
 
+    let policyID = ''+context.get(Scope.SESSION, "urn:ibm:security:asf:policy", "policyID");
+    // extract the short policy name to avoid hard-coding the redirect URI path
+    let shortPolicyName = policyID.substring(policyID.lastIndexOf(':')+1);
+
     //
     // rebuild the redirectURI - note this has to follow exactly what was done
     // in the login.html server-side template page scripting when building the
     // redirect_uri that is included in the request JWT
     //
-    let redirectURI = pointOfContact + "/sps/authsvc/policy/duoUniversalPrompt" +
+    let redirectURI = pointOfContact + "/sps/authsvc/policy/" + shortPolicyName +
     "?operation=verify" +
     "&authsvcstate=" + authsvcstate + 
     "&StateId=" + authsvcstate;
@@ -239,9 +243,6 @@ try {
             // only based on the SPS session cookie state.
             oidcState = generateRandom(64);
             IDMappingExtUtils.setSPSSessionData("oidcState", oidcState);
-
-            // build the redirect URI - this is the authsvc policy URL
-            let redirectURI = pointOfContact + "/sps/authsvc/policy/duoUniversalPrompt";
 
             // this is the start of the authorize URL redirect however
             // it will be augmented with extra parameters (specifically the request JWT)
