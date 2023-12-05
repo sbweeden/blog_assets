@@ -1,6 +1,6 @@
 # Integrating Duo Universal Prompt Authentication into IBM Security Verify Access
 
-I recently [documented an API-based integration with Duo and IBM Security Verify Access](https://community.ibm.com/community/user/security/blogs/shane-weeden1/2023/11/29/integrating-duo-authentication-into-ibm-security-v). This article documents a completely different style of integration using Duo for 2FA in an IBM Security Verify Access (ISVA) environment. In this case OpenID Connect is used to integrate with the [Duo Universal Prompt](https://duo.com/docs/oauthapi#overview).
+I recently [documented an API-based integration with Duo and IBM Security Verify Access](https://github.com/sbweeden/blog_assets/tree/master/isva_duo). This article documents a completely different style of integration using Duo for 2FA in an IBM Security Verify Access (ISVA) environment. In this case OpenID Connect is used to integrate with the [Duo Universal Prompt](https://duo.com/docs/oauthapi#overview).
 
 Note that this solution and accompanying code are provided as-is, without support, but make use of standard APIs as advertised publicly in the [Duo OIDC Auth API - Duo Universal Prompt](https://duo.com/docs/oauthapi). That said I am happy to help our customers with questions on what has been done here, and encourage engagement via the [IBM Security Verify Discussion Forum](https://community.ibm.com/community/user/security/communities/community-home/digestviewer?communitykey=e7c36119-46d7-42f2-97a9-b44f0cc89c6d).
 

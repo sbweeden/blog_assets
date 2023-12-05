@@ -6,16 +6,16 @@ importMappingRule("KJUR");
 // *********************************************************
 // This is the Duo configuration required for this mechanism
 //
-// Note that these should come from a "Web SDK" application
-// configuration in Duo.
+// Note that the duo* variables should come from a "Web SDK" application configuration in Duo.
+// The pointOfContact should be what the browser uses to contact your ISVA system, including the junction to AAC.
 //
 // For more information see: https://duo.com/docs/oauthapi#first-steps
 // *********************************************************
 
-let duoWebSDKClientId = "DID6JTMBA6RG51WN823M";
-let duoWebSDKClientSecret = "pjk2ZO6XkVCvZz28859QNUMqfvq9NxiDFa2gnQlw";
-let duoAPIEndpoint = "api-7b73d996.duosecurity.com";
-let pointOfContact = "https://mybox33.asuscomm.com/mga";
+let duoWebSDKClientId = "YOUR_VALUE";
+let duoWebSDKClientSecret = "YOUR_VALUE";
+let duoAPIEndpoint = "api-XXXXXXXX.duosecurity.com";
+let pointOfContact = "https://your_webseal_hostname/mga";
 
 // ***********************************
 // These are general utility functions
