@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "d486f95a-d04d-4901-bf8c-39e8de54ea16",
+		"_postman_id": "c0f36c84-d6b9-45b0-a7da-068ca48189e0",
 		"name": "FIDO2AppClient",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -305,11 +305,6 @@
 							"",
 							"// generate an assertion response from the current CredentialRequestOptions",
 							"console.log(\"Calling processCredentialRequestOptions starting with: \" + pm.environment.get(\"cro\"));",
-							"",
-							"// ensure the origin used in clientDataJSON matches the host we are operating against",
-							"var currentConfig = JSON.parse(pm.environment.get(\"fidoutilsConfig\"));",
-							"//currentConfig.origin = \"https://rps-app.vb76iz9iykg.au-syd.codeengine.appdomain.cloud\"; // \"https://\" +  pm.environment.get(\"hostport\");",
-							"//pm.environment.set(\"fidoutilsConfig\", JSON.stringify(currentConfig));",
 							"",
 							"// get the assertion with up=true, uv=true",
 							"var cror = processCredentialRequestOptions(",
