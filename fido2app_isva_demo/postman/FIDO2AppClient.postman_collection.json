@@ -13,8 +13,8 @@
 					"script": {
 						"exec": [
 							"var jsonData = JSON.parse(responseBody);",
-							"postman.setEnvironmentVariable(\"username\", jsonData.username);",
-							"postman.setEnvironmentVariable(\"displayName\", jsonData.email);"
+							"postman.setEnvironmentVariable(\"username\", jsonData.AZN_CRED_PRINCIPAL_NAME);",
+							"postman.setEnvironmentVariable(\"displayName\", jsonData.AZN_CRED_PRINCIPAL_NAME);"
 						],
 						"type": "text/javascript"
 					}
@@ -74,6 +74,12 @@
 							"    pm.environment.set(\"cco\", JSON.stringify(cco));",
 							"    console.log(\"cco: \" + JSON.stringify(cco));",
 							"});",
+							"",
+							"// ensure the origin used in clientDataJSON matches the host we are operating against",
+							"// this is needed before the PostAttestationResult is run",
+							"var currentConfig = JSON.parse(pm.environment.get(\"fidoutilsConfig\"));",
+							"currentConfig.origin = \"https://\" +  pm.environment.get(\"hostport\");",
+							"pm.environment.set(\"fidoutilsConfig\", JSON.stringify(currentConfig));",
 							""
 						],
 						"type": "text/javascript"
@@ -137,11 +143,6 @@
 							"eval(globals.fidoutils);",
 							"",
 							"var attestationFormat = 'packed-self'; // can be 'none', 'fido-u2f', 'packed', 'packed-self'",
-							"",
-							"// ensure the origin used in clientDataJSON matches the host we are operating against",
-							"var currentConfig = JSON.parse(pm.environment.get(\"fidoutilsConfig\"));",
-							"currentConfig.origin = \"https://\" +  pm.environment.get(\"hostport\");",
-							"pm.environment.set(\"fidoutilsConfig\", JSON.stringify(currentConfig));",
 							"",
 							"// generate an attestation response from the current CredentialCreationOptions (up=true, uv=true)",
 							"var ccor = processCredentialCreationOptions(",
