@@ -6,7 +6,7 @@ Use files at: https://github.com/sbweeden/blog_assets/tree/master/fido2app_isva_
 
 ## Pre-requisites
 
-- Your ISVA system should be configured with a Web Reverse Proxy that is functioning and accessible to both browsers and an iPhone. 
+- Your ISVA system should be configured with a Web Reverse Proxy that is functioning and accessible to both browsers and an iPhone. It must either have a valid certificate, or if using a self-signed certificate the certificate must be imported into the trust store for both the browser and iOS. In these instructions the hostname is `www.myidp.ibm.com`.
 - A user account should exist (in my case this is `testuser`)
 
 ## Setup Instructions
@@ -40,7 +40,7 @@ Use files at: https://github.com/sbweeden/blog_assets/tree/master/fido2app_isva_
 com.tivoli.am.fim.trustserver.sts.utilities.*=all:com.tivoli.am.fim.trustserver.sts.modules.*=all:com.tivoli.am.fim.oidc.protocol.delegate.*=all:com.tivoli.am.fim.fido.*=all:com.ibm.iam.isfs.v2.*=all:com.tivoli.am.fim.authsvc.action.authenticator.fido.*=all
 ```
 
-- When using the Postman collection for testing FIDO APIs, be sure to change the `Tests` script for the `WhoAmI` API to populate `'username` and `displayName` from `AZN_CRED_PRINCIPAL_NAME` instead of the values which come from the `fidointerop.securitypoc.com` test site.
+- When using the Postman collection for testing FIDO APIs, be sure to change the `Tests` script for the `WhoAmI` API to populate `'username` and `displayName` from `AZN_CRED_PRINCIPAL_NAME` instead of the values which come from the `fidointerop.securitypoc.com` test site. See the 
 - Configure the Postman environment, including updates to the environment variables.
 - Try calling WhoAmI, FetchAttestationOptions, PostAttestationResult.
 - Look for registration at: https://www.myidp.ibm.com/mga/sps/mga/user/mgmt/html/device/device_selection.html
