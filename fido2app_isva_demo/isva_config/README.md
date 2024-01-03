@@ -21,7 +21,7 @@ Use files at: https://github.com/sbweeden/blog_assets/tree/master/fido2app_isva_
 - Update WebSEAL for Authentication and Context Based Access Configuration.
 - Update WebSEAL configuration to use custom access token validation:
 ```
-        [tfim-cluster:oauth-cluster]
+        [oauth]
         default-fed-id = http://appliesto/customat
 ```
 - Update WebSEAL configuration to enable credential viewer.
