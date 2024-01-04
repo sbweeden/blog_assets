@@ -13,8 +13,8 @@
 					"script": {
 						"exec": [
 							"var jsonData = JSON.parse(responseBody);",
-							"postman.setEnvironmentVariable(\"username\", jsonData.username);",
-							"postman.setEnvironmentVariable(\"displayName\", jsonData.email);"
+							"postman.setEnvironmentVariable(\"username\", jsonData.AZN_CRED_PRINCIPAL_NAME);",
+							"postman.setEnvironmentVariable(\"displayName\", jsonData.AZN_CRED_PRINCIPAL_NAME);"
 						],
 						"type": "text/javascript"
 					}
