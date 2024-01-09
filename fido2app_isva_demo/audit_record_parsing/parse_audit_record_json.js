@@ -1,4 +1,12 @@
 // relies on fidotools.js from postman collection
+//
+// Takes the JSON of an audit record for attestation or assertion as sent from the FIDO2App
+// and reconstructs the original payload values such that they can be validated in the 
+// fido2viewer (https://github.com/sbweeden/fido2viewer)
+//
+// You can run this in a browser console - first past in fidotools.js
+// then paste in this file. Example records and parsing at bottom of this file.
+//
 
 /**
  * Extracts the bytes from an array beginning at index start, and continuing until 
