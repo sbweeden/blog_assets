@@ -128,5 +128,8 @@ These scenario HTTP transformation rules have either come up in the context of a
 
 | Module | Description |
 |--------|-------------|
+| default_10_0_7.lua | This is just a copy of the out-of-the-box default Lua HTTP transformation rule from ISVA 10.0.7. Useful as a reference for the comments it contains |
 | echo_context.lua | This is a handy utility that just returns in a HTTP response the context it received. This can be particularly useful to capture the context from a "real request" in a runtime environment when you then want to work with the offline Lua testing tool. |
+| pkmspasswd.lua | This request HTTP transformation rule can be applied to the /pkmspasswd.form submission URL for the /pkmspasswd change password function of the WRP. It demonstrates how to reject an attempt to change a password when the old and new passwords are the same. You could easily imagine this integrating with external password strength checkers as well. |
+| assert_username_eai.lua | A simple EAI authentication transformation that logs you in as the username provided in the query string. Definitely for demonstration purposes only! |
 | jwks_filter_expired.lua | This *response* HTTP transformation rule parses the output of the AAC JWKS endpoint, removing entries where any of the x5c entries contain an expired certificate. |
