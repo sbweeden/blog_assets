@@ -140,7 +140,7 @@ The following diagram shows how to create the `Passkey Registration` access poli
 
 The redirect URL is a server-relative URL to redirect to the solicited passkey workflow, following the pattern `/flows/?reference=<your_workflow_name>&themeId=<your_theme_id>`.
 
-Following on from the earlier example of how to capture your custom themeid, the redirect URL in this example is: `/flows/?reference=passkeyreg&themeId=504c1358-04c7-45f4-b7b6-4dde17f1211a`
+Following on from the earlier example of how to capture your custom themeid, the redirect URL in this example is: `/flows/?reference=passkeyregistration&themeId=504c1358-04c7-45f4-b7b6-4dde17f1211a`
 
 ![create access policy 1](images/create_access_policy_1.png?raw=true)
 ![create access policy 2](images/create_access_policy_2.png?raw=true)
