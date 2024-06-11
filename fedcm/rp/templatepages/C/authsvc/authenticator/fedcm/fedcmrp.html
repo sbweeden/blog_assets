@@ -1,0 +1,17 @@
+<html>
+<head>
+    <script type="text/javascript" src="/sps/static/scripts/fedcmrp.js" id="fedcm-tags">
+        @FEDCM_STATE@
+    </script>
+</head>
+<body>
+	<div id="userinfodiv"><a href="/..">Home</a></div>
+	<div id="msgdiv" style="display:none">
+	This is the msg div.
+	</div>
+    <form id="fedcm-form" method="POST" action="@ACTION@">
+        <input type="hidden" name="token" value="">
+        <input type="hidden" name="operation" value="verify">
+    </form>
+</body>
+</html>
