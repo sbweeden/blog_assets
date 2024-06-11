@@ -66,3 +66,10 @@ As such, you need to create an STS Chain Template (I called mine `stsuu_to_jwt`)
 
 You then create an STS Module Chain which instantiates this template, with the following lookup properties:
 
+| Property | Value | 
+|------------|------|
+| Token Type | Validate (http://schemas.xmlsoap.org/ws/2005/02/trust/Validate) |
+| AppliesTo Address | http://appliesto/stsuu |
+| Issuer Address | http://issuer/jwt |
+| Jwt Module | Checkbox for `Validate 'exp' is in the future` |
+|------------|------|
