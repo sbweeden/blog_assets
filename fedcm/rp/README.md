@@ -8,6 +8,10 @@ The assets provided here at the time of writing permit configuration and testing
 
 The setup instructions here will focus on configuring ISVA as a FedCM RP for Google as the IDP, but it is very easy to add additional providers.
 
+Note: At the time of writing, only the Chrome browser (I used version 125) supports FedCM.
+
+Read more about the current status of the [Federated Credential Management API](https://developers.google.com/privacy-sandbox/3pcd/fedcm) on Google's website.
+
 ## ISVA Pre-requisites
 
 The FedCM configuration requires ISVA to have both the AAC Authentication Service, and the Federation Security Token Service available. This means the advanced access control and federation modules must be activated.
