@@ -50,6 +50,15 @@ The way this `_idpConfiguration` is constructed is that it is a JSON Object, wit
  - The `clientConfigURL` is the URL to a configuration document for FedCM. I discovered the Google value by first inspecting (and following redirects from) the web-identity well-known URL at `https://google.com/well-known/web-identity`.
  - The JWKS endpoint is something I discovered by simply searching for `Google JWKS endpoint`. Ultimately though, it needs to point to a JWKS that includes the public key of the signer of the JWT from the IDP.
 
+## Load required trust certificates into the rt_profile_keys keystore
+
+During the FedCM flow, the AAC runtime will try to access the `jwksEndpoint` URL defined for the IDP in the `_idpConfiguration` variable of the [FedCM.js](mappingrules/FedCM.js) mapping rule. If the runtime doesn't have the trusted TLS certificate chain for this endpoint, then JWT token validation will fail and the FedCM login will not complete. 
+
+You can use a browser to visit the `jwksEndpoint` and retrieve the require CA and intermediate certificates, and make sure they are added as trusted certificates in the rt_profile_keys keystore that is used by the STS. These might change over time, but at the time of writing, for the Google IDP, these have been retrieved and are provided as shown:
+
+ - [GTS Root R1.cer](google_tls_certs/GTS Root R1.cer)
+ - [GTS CA 1C3.cer](google_tls_certs/GTS CA 1C3.cer)
+
 
 ## Upload page templates and mapping rule
 
@@ -79,9 +88,81 @@ You then create an STS Module Chain which instantiates this template, with the f
 | Issuer Address | http://issuer/jwt |
 | Jwt Module | Checkbox for `Validate 'exp' is in the future` |
 
-If in any doubt, just make sure that the Lookup parameters for the module chain match how the chain is being called in the [FedCM.js](mappingrules/FedCM.js) mapping rule.
+If in any doubt, just make sure that the Lookup parameters for the module chain match how the chain is being called in the `doFedCMLogin` function of the [FedCM.js](mappingrules/FedCM.js) mapping rule.
 
 ![sts_module_chain_1](readme_images/sts_module_chain_1.png)
 
 ![sts_module_chain_2](readme_images/sts_module_chain_2.png)
+
+## Create AAC Infomap Mechanism and Policy
+
+Create a new AAC InfoMap authentication mechanism with mechanism URI `urn:ibm:security:authentication:asf:mechanism:fedcmrp` with the Mapping Rule set to the `FedCM` mapping rule:
+
+![aac_mech](readme_images/aac_mech.png)
+
+
+Create a new AAC InfoMap authentication policy with mechanism URI `urn:ibm:security:authentication:asf:fedcmrp` with the previous Infomap Mechanism as the only workflow step:
+
+![aac_policy](readme_images/aac_policy.png)
+
+## Ensure unauthenticated access is permitted to the policy
+
+Ensure that the ACL / POP policy attached to the URL used to initialte this policy permits unauthenticated access:
+
+```
+pdadmin sec_master> object show /WebSEAL/localhost-default/mga/sps/authsvc/policy/fedcmrp
+    Name: /WebSEAL/localhost-default/mga/sps/authsvc/policy/fedcmrp
+        Description: Object from host mybox33.asuscomm.com.
+        Type: 16 (Management Object) 
+        Is Policy Attachable: Yes
+        Extended Attributes: 
+        Attached ACL: 
+        Attached POP: level0pop
+        Attached AuthzRule: 
+         
+        Effective Extended Attributes
+          Protected Object Location: /WebSEAL/localhost-default/mga
+          Name:     HTTP-Tag-Value
+          Value(s): tagvalue_user_session_id=user_session_id
+                    tagvalue_session_index=session_index
+        Effective ACL: isam_mobile_unauth
+        Effective POP: level0pop
+        Effective AuthzRule: 
+```
+
+In my example above I have the ACL `isam_mobile_unauth` which permits unauthenticated access and the pop `level0pop` which has no conditions on authentication level (there are other POP attachments higher in my object namespace that place restrictions on other authsvc URLs which is why I use this POP).
+
+## Recommended - enable the cred-viewer local application for credential debugging
+
+In the WRP configuration file:
+
+```
+[local-apps]
+cred-viewer=ivcreds
+```
+
+
+## Test the authenticaiton policy
+
+First, ensure in your browser that you are already logged into the IDP account (such as accounts.google.com), otherwise FedCM will not work.
+
+Using a browser, visit your RP policy URL with the `Target` set to the credential viewer local application, for example: 
+
+```
+https://www.mysp.ibm.com/mga/sps/authsvc/policy/fedcmrp?Target=/ivcreds
+```
+
+All being well, you should first see a prompt to sign in with your Google account. This is FedCM in action, being orchestrated by the browser. If you continue, login should complete and the credential viewer application will show various attributes of your assertion token.
+
+![fedcm_runtime_1](readme_images/fedcm_runtime_1.png)
+
+![fedcm_runtime_2](readme_images/fedcm_runtime_2.png)
+
+## Troubleshooting
+
+There are two main things to look at when troubleshooting the FedCM flow. The first is the browser console - use the browser debugging tools to access this. The other is the trace.log of the AAC / Federation runtime of the ISVA system. I recommend the trace string:
+
+```
+com.tivoli.am.fim.trustserver.sts.utilities.*=all:com.tivoli.am.fim.trustserver.sts.modules.*=all
+```
 

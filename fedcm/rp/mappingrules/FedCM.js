@@ -174,6 +174,8 @@ function doFedCMLogin(t, n) {
 		} else {
 			fedcmState.errorMessage = wstResult.errorMessage;
 		}
+	} else {
+		IDMappingExtUtils.traceStirng("Unknown JWT issuer: " + iss);
 	}
   
  	return res;
