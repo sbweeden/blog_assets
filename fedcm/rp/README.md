@@ -61,7 +61,7 @@ As such, you need to create an STS Chain Template (I called mine `stsuu_to_jwt`)
 |------------|------|
 | Default Jwt Module | Validate |
 | Default STSUU | Issue |
-|------------|------|
+
  
 
 You then create an STS Module Chain which instantiates this template, with the following lookup properties:
@@ -72,4 +72,4 @@ You then create an STS Module Chain which instantiates this template, with the f
 | AppliesTo Address | http://appliesto/stsuu |
 | Issuer Address | http://issuer/jwt |
 | Jwt Module | Checkbox for `Validate 'exp' is in the future` |
-|------------|------|
+
