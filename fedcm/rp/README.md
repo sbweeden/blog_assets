@@ -59,6 +59,7 @@ You can use a browser to visit the `jwksEndpoint` and retrieve the require CA an
  - [GTS Root R1.cer](google_tls_certs/GTS%20Root%20R1.cer)
  - [GTS CA 1C3.cer](google_tls_certs/GTS%20CA%201C3.cer)
 
+![rt_profile_keys_trusted_certs](readme_images/rt_profile_keys_trusted_certs.png)
 
 ## Upload page templates and mapping rule
 
