@@ -56,8 +56,8 @@ During the FedCM flow, the AAC runtime will try to access the `jwksEndpoint` URL
 
 You can use a browser to visit the `jwksEndpoint` and retrieve the require CA and intermediate certificates, and make sure they are added as trusted certificates in the rt_profile_keys keystore that is used by the STS. These might change over time, but at the time of writing, for the Google IDP, these have been retrieved and are provided as shown:
 
- - [GTS Root R1.cer](google_tls_certs/GTS Root R1.cer)
- - [GTS CA 1C3.cer](google_tls_certs/GTS CA 1C3.cer)
+ - [GTS\ Root\ R1.cer](google_tls_certs/GTS%20Root%20R1.cer)
+ - [GTS\ CA\ 1C3.cer](google_tls_certs/GTS%20CA%201C3.cer)
 
 
 ## Upload page templates and mapping rule
