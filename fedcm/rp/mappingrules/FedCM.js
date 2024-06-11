@@ -14,30 +14,29 @@ importClass(Packages.com.tivoli.am.fim.base64.BASE64Utility);
 * Be sure to add your RP web origin to the Authorized JavaScript origins of the credentials for your web application client
 */
 const _idpConfiguration = {
-	"https://fidointerop.securitypoc.com": {
-		clientID: "1e8697b0-2791-11ef-b4dd-bff0b72b7f0d",
-		clientConfigURL: "https://fidointerop.securitypoc.com/fedcm/config.json",
-		jwksEndpoint: "https://fidointerop.securitypoc.com/jwks"
-	}
 	/*
+	"https://myidp.ibm.com": {
+		clientID: "1e8697b0-2791-11ef-b4dd-bff0b72b7f0d",
+		clientConfigURL: "https://myidp.ibm.com/fedcm/config.json",
+		jwksEndpoint: "https://myidp.ibm.com/jwks"
+	}
 	,
+	*/
 	"https://accounts.google.com": {
-		clientID: "296002639042.apps.googleusercontent.com",
+		clientID: "YOUR_CLIENT.apps.googleusercontent.com",
 		clientConfigURL: "https://accounts.google.com/gsi/fedcm.json",
 		jwksEndpoint: "https://www.googleapis.com/oauth2/v3/certs"		
 	}
-	*/
 };
 
 
-
-
-
-
-
+// We always use this page
 page.setValue("/authsvc/authenticator/fedcm/fedcmrp.html");
-
 var result = false;
+
+// state management object also shared with the page sent to the browser
+// as a macro. Contains a copy of the IDP configuration, and the nonce
+// used for freshness / replay protection
 var fedcmState = {
 	idpConfig: _idpConfiguration
 };
@@ -66,7 +65,6 @@ function base64urlencode(s) {
 	var sbytes = javascriptStringToJavaString(encode_utf8(s)).getBytes("UTF-8");
 	var b64txt = BASE64Utility.encode(sbytes, false);
 	var result = b64txt.split("=")[0].replace(/\+/g,"-").replace(/\//g,"_");
-	//IDMappingExtUtils.traceString("base64urlencode s: " + s + " result: " + result);
 	return result;
 }
 
@@ -82,10 +80,12 @@ function base64urldecode(s) {
 		default: throw "Illegal base64 string";
 	}
 	let result = decode_utf8(byteArrayToJavaString(BASE64Utility.decode(s2),"UTF-8"));
-	//IDMappingExtUtils.traceString("base64urldecode s: " + s + " result: " + result);
 	return result;
 }
 
+/*
+ * Extracts the claims of a JWT as a JSON object
+ */
 function getClaims(jwt) {
 	let result = null;
 	if (jwt != null) {
@@ -97,10 +97,12 @@ function getClaims(jwt) {
 	return result;
 }
 
+/*
+ * Extracts the iss claim of a JWT
+ */
 function getIssuer(jwt) {
 	let result = null;
 	let claims = getClaims(jwt);
-	//IDMappingExtUtils.traceString("Claims: " + (claims == null ? "null" : JSON.stringify(claims)));
 	if (claims != null) {
 		result = claims.iss;
 	}
@@ -108,8 +110,10 @@ function getIssuer(jwt) {
 }
 
 
+/*
+ * Generates a string of random alphanumerics
+ */
 function generateRandom(len) {
-    // generates a random string of alpha-numerics
     var chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     var result = "";
     for (var i = 0; i < len; i++) {
@@ -122,7 +126,7 @@ function doFedCMLogin(t, n) {
 	let res = false;
 	
 	// make sure we know the issuer
-	let iss = getIssuer(t);	
+	let iss = getIssuer(t);
 	if (iss != null && Object.keys(_idpConfiguration).indexOf(iss) >= 0) {
 		// validate this JWT with STS
 		let jwtXMLStr = "<wss:BinarySecurityToken "
