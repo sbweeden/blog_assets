@@ -159,7 +159,7 @@ function doFedCMLogin(t, n) {
 				// login as this user
 				context.set(Scope.SESSION, "urn:ibm:security:asf:response:token:attributes", "username", stsuu.getAttributeValueByName("sub"));
 				context.set(Scope.SESSION, "urn:ibm:security:asf:response:token:attributes", "AUTHENTICATION_LEVEL", "2");
-				let optionalAttrs = [ "displayName", "email" ];
+				let optionalAttrs = [ "displayName", "email", "email_verified", "name", "given_name", "family_name" ];
 				optionalAttrs.forEach((a) => {
 					let aValue = stsuu.getAttributeValueByName(a);
 					if (aValue != null) {

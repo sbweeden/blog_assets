@@ -16,6 +16,8 @@ Read more about the current status of the [Federated Credential Management API](
 
 The FedCM configuration requires ISVA to have both the AAC Authentication Service, and the Federation Security Token Service available. This means the advanced access control and federation modules must be activated.
 
+The Web Reverse Proxy (WRP) should also have had the AAC Authentication service wizard run against it to ensure that EAI authentication is configured properly for the AAC authentication service.
+
 ## Pre-requisite Google APIs setup
 
 Given that the instructions here will be for configuring FedCM RP with Google as the IDP, we first need to create a Google project and credentials to allow the ISVA system to act as a client. This can be done on the [Google APIs console](https://console.cloud.google.com/apis)
