@@ -77,7 +77,7 @@ The FedCM protocol results in the sharing of a `token` between the IDP and RP. T
 
 To validate the JWT token from the IDP, the [FedCM.js](mappingrules/FedCM.js) mapping rule uses the LocalSTSClient to call an STS chain for validation and issue a simple STSUU.
 
-As such, you need to create an STS Chain Template (I called mine `stsuu_to_jwt`) with two modules:
+As such, you need to create an STS Chain Template (I called mine `jwt_to_stsuu`) with two modules:
 
 | Token Type | Mode | 
 |------------|------|
