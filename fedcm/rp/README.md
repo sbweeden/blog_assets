@@ -119,7 +119,7 @@ Ensure that the ACL / POP policy attached to the URL used to initialte this poli
 ```
 pdadmin sec_master> object show /WebSEAL/localhost-default/mga/sps/authsvc/policy/fedcmrp
     Name: /WebSEAL/localhost-default/mga/sps/authsvc/policy/fedcmrp
-        Description: Object from host mybox33.asuscomm.com.
+        Description: Object from host www.sp.ibm.com.
         Type: 16 (Management Object) 
         Is Policy Attachable: Yes
         Extended Attributes: 
