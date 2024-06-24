@@ -11,33 +11,33 @@
         request-match = request:GET /.well-known/web-identity *
         request-match = request:GET /fedcm/config.json *
         request-match = preazn:GET /fedcm/accounts *
-		request-match = request:GET /fedcm/client_metadata*
-		request-match = preazn:POST /fedcm/id_assertion *
-		request-match = preazn:POST /fedcm/disconnect *
-		request-match = postazn:GET /fedcm/login *
+        request-match = request:GET /fedcm/client_metadata*
+        request-match = preazn:POST /fedcm/id_assertion *
+        request-match = preazn:POST /fedcm/disconnect *
+        request-match = postazn:GET /fedcm/login *
         =============
         
         Also require the SameSite=None attribute on the session cookie for it to be passed in FedCM requests to the accounts and id_assertion endpoints
 
         ================
         [cookie-attributes]
-		PD-S-SESSION-ID = [-unsupported-same-site]SameSite=None
+        PD-S-SESSION-ID = [-unsupported-same-site]SameSite=None
         ================
 
-		Note that the WRP configuration file needs to be updated for configuration used by the STS client. This requires all the following parameters:
+        Note that the WRP configuration file needs to be updated for configuration used by the STS client. This requires all the following parameters:
 		
         ================
-		[http-transformations:secrets]
-		fedcm_assertion_signing_alg=RS256
-		fedcm_assertion_signing_keystore=pdsrv
-		fedcm_assertion_signing_cert=fidointerop
+        [http-transformations:secrets]
+        fedcm_assertion_signing_alg=RS256
+        fedcm_assertion_signing_keystore=pdsrv
+        fedcm_assertion_signing_cert=WebSEAL-Test-Only
         ================
 
-		For the RP to obtain access to the JWKS endpoint, enable that local-application in the IDP (accessible via https://fidointerop.securitypoc.com/jwks)
-		Unauthenticated access needs to be enabled to this as well.
-		================
-		[local-apps]
-		jwks = jwks
+        For the RP to obtain access to the JWKS endpoint, enable that local-application in the IDP (accessible via https://www.myidp.ibm.com/jwks)
+        Unauthenticated access needs to be enabled to this as well.
+        ================
+        [local-apps]
+        jwks = jwks
         ================
 --]]
 
@@ -49,10 +49,12 @@ local stsclient = require 'STSClient'
 -- a few seconds should really be enough
 local FEDCM_ASSERTION_MAX_AGE_SECONDS = 60
 
-local hostname = "fidointerop.securitypoc.com"
+local hostname = "www.myidp.ibm.com"
 local clientList = {}
-clientList["1e8697b0-2791-11ef-b4dd-bff0b72b7f0d"]={origin="https://mybox33.asuscomm.com:30443",privacy_policy_url="http://ibm.com/privacy-policy.html",terms_of_service_url="http://ibm.com/terms-of-service.html"}
-
+clientList["c892ed5a-9f60-4f1f-8ace-eef3ac904a72"]={
+	origin="https://www.mysp.ibm.com",
+	privacy_policy_url="http://ibm.com/privacy-policy.html",
+	terms_of_service_url="http://ibm.com/terms-of-service.html"}
 
 --[[
     starts_with
@@ -409,13 +411,15 @@ function disconnectResponse()
 
 	local originHeader = HTTPRequest.getHeader("Origin")
 
-	-- TODO - Implement the disconnect logic
 	local errorCode = nil
 	if (checkOriginHeader(clientID)) then
 		if (username ~= nil and username ~= "unauthenticated") then
 			if (username == accountHint) then
 				-- all ok - build the disconnect response
 				disconnectJSON["account_id"] = username
+
+				-- TODO - Implement the disconnect logic
+
 			else
 				errorCode = "invalid_request"
 				logger.debugLog("disconnectResponse: invalid account_id")
