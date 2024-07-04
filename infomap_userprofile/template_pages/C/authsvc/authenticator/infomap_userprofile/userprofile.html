@@ -1,0 +1,24 @@
+<html>
+    <head>
+        <title>User profile</title>
+        <script type="text/javascript" src="/sps/static/userprofile.js" id="page_tags">
+            @ESCAPED_PAGE_JSON@
+        </script>
+    </head>
+    <body>
+        <div id="welcomediv" style="display:inline-block;">Welcome: <b><div id="usernamediv" style="display:inline-block;"></div></b></div>
+        <br><br>
+        <table id="attributesTable" border="1">
+            <tr><th>Attribute</th><th>Current Value</th><th> New Value</th></tr>
+            <tbody>
+            </tbody>
+        </table>
+        <br><br>
+        <input type="button" id="saveButton" value="Save">
+        <form id="attributesForm" action="@ACTION@" method="POST">
+            <input type="hidden" name="operation" value="verify">
+            <input type="hidden" name="action" value="update">
+            <input type="hidden" name="profileJSON" value="">
+        </form>
+    </body>
+</html>
