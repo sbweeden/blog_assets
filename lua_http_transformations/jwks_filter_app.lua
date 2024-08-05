@@ -69,7 +69,7 @@ function buildSubjectDN(sbj)
         -- prepend this component to what we have built so far
         result = component .. result
     end
-    logger.debugLog("buildSubjectDN.result: " .. result)
+    -- logger.debugLog("buildSubjectDN.result: " .. result)
     return result
 end
 
@@ -89,7 +89,7 @@ function validateKeyX5C(k)
 
             -- now do any of the strings in the definitionNameToCNList for the current definitionName match?
             if (hasValue(definitionNameToCNList[definitionName], subjectDN)) then
-                logger.debugLog("validateKeyX5C found a matched DN: " .. subjectDN)
+                -- logger.debugLog("validateKeyX5C found a matched DN: " .. subjectDN)
                 anyMatchedDN = true
             end
 
