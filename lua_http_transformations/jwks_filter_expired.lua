@@ -25,11 +25,11 @@ local x509 = require 'openssl.x509'
 local logger = require 'LoggingUtils'
 
 --[[
-    valiateKeyX5C
+    validateKeyX5C
     If k contains x5c, check each certificate for expiry
     Returns true if either x5c is absent, or for each entry in x5c there is nothing expired
 --]]
-function valiateKeyX5C(k)
+function validateKeyX5C(k)
     local anyExpired = false
     if k["x5c"] ~= nil then
         for i, pemStr in pairs(k["x5c"]) do
@@ -59,7 +59,7 @@ if rspBodyJSON ~= nil then
     if rspBodyJSON["keys"] ~= nil then
         for i, k in pairs(rspBodyJSON["keys"]) do
             --logger.debugLog("i: " .. i .. " k: " .. cjson.encode(k))
-            if (valiateKeyX5C(k)) then
+            if (validateKeyX5C(k)) then
                 table.insert(newRspJSON["keys"], k)
             end
         end
