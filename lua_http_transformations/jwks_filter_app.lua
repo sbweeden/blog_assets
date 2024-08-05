@@ -19,7 +19,6 @@
 --]]
 
 local cjson = require 'cjson'
-local baseutils = require 'basexx'
 local x509 = require 'openssl.x509'
 
 local logger = require 'LoggingUtils'
@@ -35,6 +34,9 @@ local _, _, definitionName = string.find(HTTPRequest.getURL(), ".*/(%a+)")
 Checks if a table has a value
 --]]
 local function hasValue (tab, val)
+    if tab == nil then
+        return false
+    end
     for k,v in ipairs(tab) do
         if v == val then
             return true
@@ -97,22 +99,28 @@ function validateKeyX5C(k)
     return anyMatchedDN
 end
 
-local newRspJSON =cjson.decode('{"keys":[]}')
-local rspBody = HTTPResponse.getBody()
---logger.debugLog("rspBody: " .. rspBody)
-local rspBodyJSON = cjson.decode(rspBody)
-if rspBodyJSON ~= nil then
-    if rspBodyJSON["keys"] ~= nil then
-        for i, k in pairs(rspBodyJSON["keys"]) do
-            --logger.debugLog("i: " .. i .. " k: " .. cjson.encode(k))
-            if (validateKeyX5C(k)) then
-                table.insert(newRspJSON["keys"], k)
-            end
-        end
-        HTTPResponse.setBody(cjson.encode(newRspJSON))
-    else
-        logger.debugLog("Response body did not contain keys")
-    end
+if (definitionNameToCNList[definitionName] == nil) then
+    logger.debugLog("Not filtering because no filter defined for definition name: " .. definitionName)
 else
-    logger.debugLog("Unable to decode response body as JSON")
+    local newRspJSON =cjson.decode('{"keys":[]}')
+    local rspBody = HTTPResponse.getBody()
+    --logger.debugLog("rspBody: " .. rspBody)
+    local rspBodyJSON = cjson.decode(rspBody)
+
+
+    if rspBodyJSON ~= nil then
+        if rspBodyJSON["keys"] ~= nil then
+            for i, k in pairs(rspBodyJSON["keys"]) do
+                --logger.debugLog("i: " .. i .. " k: " .. cjson.encode(k))
+                if (validateKeyX5C(k)) then
+                    table.insert(newRspJSON["keys"], k)
+                end
+            end
+            HTTPResponse.setBody(cjson.encode(newRspJSON))
+        else
+            logger.debugLog("Response body did not contain keys")
+        end
+    else
+        logger.debugLog("Unable to decode response body as JSON")
+    end
 end
