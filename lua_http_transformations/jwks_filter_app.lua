@@ -23,7 +23,7 @@ local x509 = require 'openssl.x509'
 
 local logger = require 'LoggingUtils'
 
--- For each "application definition", contains a list of the local case CNs for certificates we want that JWKS endpoint to expose
+-- For each "OIDC / OAuth definition", contains a list of the lower case (important)  subject DNs for certificates we want that JWKS endpoint to expose
 local definitionNameToCNList = cjson.decode('{"myOIDCDefinition":["cn=isam,o=ibm,c=us","cn=digicert tls hybrid ecc sha384 2020 ca1,o=digicert inc,c=us"]}')
 
 -- set definitionName to the text after the last forward slash in the request URL
