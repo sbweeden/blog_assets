@@ -75,6 +75,7 @@
           function solicitedPasskeyRegisterDevice() {
 
             document.getElementById('customErrorDiv').style = "display:none;";
+            document.getElementById('abortlinkdiv').style = "display:none;";
 
             document.getElementById("register-button").disabled = true; 
             var response = attestationOptions;
@@ -105,12 +106,13 @@
           //
           // calls the original failedStepup
           // however adds some functionality to relabel the button for trying again
-          // and displays the error text
+          // and displays the error text, and shows an abort link
           //
           function myFailedStepup(er) {
             document.getElementById('register-button').innerText = "Retry passkey registration";
             failedStepup(er);
             document.getElementById('customErrorDiv').style = "display:block;";
+            document.getElementById('abortlinkdiv').style = "display:block;";
           }
 
           //
@@ -179,9 +181,11 @@
 				 <button class="cs-button bx--btn bx--btn--primary" id="register-button" onclick="solicitedPasskeyRegisterDevice()">Register a passkey</button>
 			  </div>
         <!-- This is new for allowing cancel -->
-			  <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
-          <a onclick="abortPasskeyRegistration()" href="javascript:void(0)">Abort passkey registration</a>
-        </div>
+         <div id="abortlinkdiv" style="display:none;">
+          <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
+            <a onclick="abortPasskeyRegistration()" href="javascript:void(0)">Abort passkey registration</a>
+          </div>
+      </div>
              <!--
 			  <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
 				 <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a>
