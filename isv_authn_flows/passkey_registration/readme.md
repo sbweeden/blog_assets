@@ -42,6 +42,7 @@ Create a new branding theme called `passkeyreg`, using the master template but r
     ./workflow/pages/default/custom_page1.html
     ./workflow/pages/default/custom_page2.html
     ./workflow/pages/default/custom_page3.html
+    ./workflow/pages/default/custom_page4.html
 ```
 
 In addition to the required pages above, there are other pages which might be optionally used depending on the method of integrating the workflow into normal end-user interaction with your site. These *optional* pages are:
@@ -184,3 +185,4 @@ After accessing the end-user portal page for your tenant, and logging in with a 
 # TODO
 
 Replace cookie-based state sharing mechanism with server-side CEL API for key/value storage when available.
+Re-evaluate better ways of providing an exit function out of the inline MFA policy.
