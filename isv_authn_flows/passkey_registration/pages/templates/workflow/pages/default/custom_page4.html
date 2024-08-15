@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- 
+            This page is used to redirect to the inline MFA enrollment policy after setting a client-side cookie
+             that contains the workflow callback URL. The cookie allows us to include an "exit" capability
+             in customised pages of the inline MFA enrollment.
+        -->
+        <script>
+            function htmlDecode(s) {
+                if (s) {
+                    return s.replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+                    
+                } else {
+                    return '';
+                }
+            }
+
+            document.cookie="workflowcallbackurl=@WORKFLOW_CALLBACK_URL@;path=/";
+            var redirectURL = htmlDecode("@context.passkeyUrl@")+"&Target=@WORKFLOW_CALLBACK_URL@"
+            window.location.replace(redirectURL);
+        </script>
+    </head>
+    <body>
+One moment.... 
+    </body>
+</html>  

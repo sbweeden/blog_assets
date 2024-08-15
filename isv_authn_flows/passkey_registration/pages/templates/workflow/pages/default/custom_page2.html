@@ -25,18 +25,39 @@
                 if (webAuthnAvailable()) {
                     isUVPAA = false;
                     isAutofillAvailable = false; 
-                    allPromises.push(
-                        PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-                        .then((x) => { isUVPAA = x; })
-                        .catch((e) => { console.log("Error calling PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable: " + e); })
-                    );
-                    if (PublicKeyCredential.isConditionalMediationAvailable != null) {
+
+                    // if the new getClientCapabilities API is available, prefer that
+                    if (typeof PublicKeyCredential.getClientCapabilities != 'undefined') {
+                        console.log("Using PublicKeyCredential.getClientCapabilities for discovery");
                         allPromises.push(
-                            PublicKeyCredential.isConditionalMediationAvailable()
-                            .then((x) => { isAutofillAvailable = x; })
-                            .catch((e) => { console.log("Error calling PublicKeyCredential.isConditionalMediationAvailable: " + e); })
-                        );    
+                            PublicKeyCredential.getClientCapabilities()
+                            .then((x) => { 
+                                isUVPAA = (x.userVerifyingPlatformAuthenticator == true);
+                                isAutofillAvailable = (x.conditionalMediation == true);
+                            }).catch((e) => { 
+                                console.log("Error calling PublicKeyCredential.getClientCapabilities: " + e); 
+                            })
+                        );
+
+                    } else {
+                        console.log("Using WebAuthn L2 discovery APIs");
+                        // use original discovery APIs
+                        if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable != 'undefined') {
+                            allPromises.push(
+                                PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                                .then((x) => { isUVPAA = x; })
+                                .catch((e) => { console.log("Error calling PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable: " + e); })
+                            );
+                        }
+                        if (typeof PublicKeyCredential.isConditionalMediationAvailable != 'undefined') {
+                            allPromises.push(
+                                PublicKeyCredential.isConditionalMediationAvailable()
+                                .then((x) => { isAutofillAvailable = x; })
+                                .catch((e) => { console.log("Error calling PublicKeyCredential.isConditionalMediationAvailable: " + e); })
+                            );    
+                        }
                     }
+
                 }
                 // now return all the promises
                 return Promise.all(allPromises);
