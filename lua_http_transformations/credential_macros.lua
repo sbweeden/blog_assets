@@ -22,7 +22,7 @@ local logger = require 'LoggingUtils'
 -- List of macros to the attributes that are used to replace them. Each "value" in this object
 -- has both the attribute name, and a flag to indicate if that attribute should be considered
 -- multi-valued
-local macroToAttrList = cjson.decode('{"@USERNAME@":{"attrName":"AZN_CRED_PRINCIPAL_NAME","isMv":false},"@GROUPS@": {"attrName":"AZN_CRED_GROUPS","isMv":false}}')
+local macroToAttrList = cjson.decode('{"@USERNAME@":{"attrName":"AZN_CRED_PRINCIPAL_NAME","isMv":false},"@GROUPS@": {"attrName":"AZN_CRED_GROUPS","isMv":true}}')
 
 -- Simple way to HTML encode a string
 function htmlEncode(s)
@@ -44,7 +44,7 @@ for i, k in pairs(macroToAttrList) do
         local replacementString = nil
         if (k.isMv) then
             -- multi-valued attribute, build a comma-separated string
-            replacementString = LoggingUtils.dumpAsString((Session.getMvCredentialAttribute(k.attrName)))
+            replacementString = logger.dumpAsString((Session.getMvCredentialAttribute(k.attrName)))
         else
             -- single-valued attribute
             replacementString = Session.getCredentialAttribute(k.attrName)
