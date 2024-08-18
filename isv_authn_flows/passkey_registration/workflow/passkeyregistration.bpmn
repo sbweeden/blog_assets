@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?><bpmn2:definitions xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" exporter="Camunda Modeler" exporterVersion="5.0.0" id="_FXeIoKhnEeOC4LOKh_69JQ" targetNamespace="isv_customtasks" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:isv="http://ibm.com/bpmn/isv" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"><bpmn2:process camunda:historyTimeToLive="1" id="passkeyregistration" isExecutable="true" isv:propertiesSchemaVersion="1.0" name="PasskeyRegistration"><bpmn2:startEvent camunda:displayName="Start event" id="Event_0onayf9"><bpmn2:outgoing>Flow_0ei92ns</bpmn2:outgoing></bpmn2:startEvent><bpmn2:endEvent camunda:displayName="End event" id="Event_0x6b6nn_customId"><bpmn2:incoming>Flow_17xjt7s</bpmn2:incoming></bpmn2:endEvent><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.CustomRuleTask" id="isv_function_1698026238114_customId" name="WorkflowPreChecks"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="inputData" name="inputData">statements:
-    - debug: '"Test debugging"'
     - context: &gt;
         logToServer := hc.Post("https://fidointerop.securitypoc.com/dump", {}, "WorkflowPreCheck context: "+jsonToString({
             "ctx": ctx,
@@ -12,27 +11,25 @@
         workflowCompleteVal := "false"
     # ideally we want to be able to check for whether or not the workflow has already
     # been done this session, either with a mechanism for server-side session state storage
-    # or even by checking a cookie. Neither is currently available, so we
-    # will check what we can, but otherwise  say no it hasn't been run yet for now, then pick 
-    # up the cookie and other client-side state information in the PasskeyClientSideDiscovery page
+    # or even by checking a cookie. Neither is currently available, but this is a placeholder for
+    # when server-side storage API becomes available.
+    # Other checks will be done after client-side discovery in the PostDiscovery function task
 
-
-    # If the user already authenticated with FIDO and the authenticatorAttachment was platform, then do not solicit registration
-    # old match: (has(idsuser.ff_fido2_id))
-    - if:
-        match: (has(idsuser.usedFIDOPlatformAuthenticator) &amp;&amp; idsuser.usedFIDOPlatformAuthenticator == "true")
-        block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "WorkflowPreCheck: user already authenticated with FIDO platform authenticator")
-            - context: &gt;
-                workflowCompleteVal = "true"
+    #
+    # Note the population of "user" below. By putting the id in here, in later function tasks we will
+    # be able to call APIs from this user, including looking up their FIDO registrations. We do this
+    # in the PostDiscovery flow to check if (on Safari where the usedFIDOPlatformAuthenticator value 
+    # cannot be leveraged since it is always set to 'platform' - Apple bug) the user has used a registration
+    # with the Apple Platform authenticator AAGUID.
+    #
     - return: &gt;
         {
             "workflowComplete": context.workflowCompleteVal,
             "userAuthenticated": (has(idsuser.uid) ? "true" : "false"),
             "usedFIDOPlatformAuthenticator": ((has(idsuser.usedFIDOPlatformAuthenticator) &amp;&amp; idsuser.usedFIDOPlatformAuthenticator == "platform") ? "true" : "false"),
             "myusername": (has(idsuser.preferred_username) ? idsuser.preferred_username : ((has(idsuser.AZN_CRED_PRINCIPAL_NAME) ? idsuser.AZN_CRED_PRINCIPAL_NAME : "unauthenticated"))),
-            "loginUrl": "https://" + ctx.__tenantid + "/idaas/mtfim/sps/idaas/login?runtime=true&amp;themeId=" + context.theme + "&amp;workflowLaunched=true"
+            "loginUrl": ("https://" + ctx.__tenantid + "/idaas/mtfim/sps/idaas/login?runtime=true&amp;themeId=" + context.theme + "&amp;workflowLaunched=true"),
+            "user": { "id": idsuser.getValue("uid") }
         }
 </isv:inputParameter><isv:outputParameter id="json" name="JSON"/></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_0ei92ns</bpmn2:incoming><bpmn2:incoming>Flow_0294cer</bpmn2:incoming><bpmn2:outgoing>Flow_0rnl1yw</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_0ei92ns" sourceRef="Event_0onayf9" targetRef="isv_function_1698026238114_customId"/><bpmn2:sequenceFlow id="Flow_0rnl1yw" sourceRef="isv_function_1698026238114_customId" targetRef="Gateway_0z4vagv_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.RenderHTMLTask" id="isv_page_1698028449760_customId" name="RedirectToTargetPage"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="themeId" name="themeId">949743b2-a96c-40e0-853e-7bfc8971e17b</isv:inputParameter><isv:inputParameter id="templatename" name="templateName">custom_page1</isv:inputParameter><isv:inputParameter id="callback" name="callback"/><isv:inputParameter id="signal" name="signal"/></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_0zwnyxg</bpmn2:incoming><bpmn2:incoming>Flow_1fqz9sa</bpmn2:incoming><bpmn2:incoming>Flow_0itrf19</bpmn2:incoming><bpmn2:incoming>Flow_0xnjkqy</bpmn2:incoming><bpmn2:outgoing>Flow_17xjt7s</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_17xjt7s" sourceRef="isv_page_1698028449760_customId" targetRef="Event_0x6b6nn_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.RenderHTMLTask" id="isv_page_1698035362199_customId" name="PasskeyClientSideDiscovery"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="themeId" name="themeId">949743b2-a96c-40e0-853e-7bfc8971e17b</isv:inputParameter><isv:inputParameter id="templatename" name="templateName">custom_page2</isv:inputParameter><isv:inputParameter id="callback" name="callback"/><isv:inputParameter id="signal" name="signal">discoverySignal</isv:inputParameter></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_0mxj3lb</bpmn2:incoming><bpmn2:outgoing>Flow_068dtly</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_068dtly" sourceRef="isv_page_1698035362199_customId" targetRef="Event_199yiau_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.CustomRuleTask" id="isv_function_1698035424723_customId" name="PostDiscovery"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="inputData" name="inputData">statements:
     - context: &gt;
@@ -44,9 +41,13 @@
     - context: &gt;
         solicitRegistration := "true"
 
+    - context: &gt;
+        fidoRegistration := "false"
+
     # discoveryInfoObj := stringToJson(ctx.discoveryInfo)
     - context: &gt;
         discoveryInfoObj := ctx.discoveryInfo
+
 
     # If the workflow has already been run this session, do not solicit. For now we have to use a cookie approach to this.
     - if:
@@ -66,12 +67,49 @@
             - context: &gt;
                 solicitRegistration = "false"
 
+    # If the client/OS does not support passkeys, then do not solicit.
+    - if:
+        match: (context.solicitRegistration == "true" &amp;&amp; has(context.discoveryInfoObj, "doPasskeysWorkHere") &amp;&amp; context.discoveryInfoObj.doPasskeysWorkHere == false)
+        block:
+            - context: &gt;
+                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: client does not support passkeys")
+            - context: &gt;
+                solicitRegistration = "false"
+
+
     # If the client/OS does not support a user-verifying platform authenticator, then do not solicit.
     - if:
         match: (context.solicitRegistration == "true" &amp;&amp; has(context.discoveryInfoObj, "isUVPAA") &amp;&amp; context.discoveryInfoObj.isUVPAA == false)
         block:
             - context: &gt;
                 logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: client does not support uvpaa")
+            - context: &gt;
+                solicitRegistration = "false"
+
+    # If the user was not on Safari, and the platform authenticator was already used to login, do not solicit.
+    # Note if Safari was used, we currently do not use this check since it ALWAYS returns authenticatorAttachment "platform"
+    - if:
+        match: (context.discoveryInfoObj.isSafari != true &amp;&amp; (has(idsuser.usedFIDOPlatformAuthenticator) &amp;&amp; idsuser.usedFIDOPlatformAuthenticator == "true"))
+        block:
+            - context: &gt;
+                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: user already authenticated with FIDO platform authenticator")
+            - context: &gt;
+                solicitRegistration = "false"
+
+    # If the user was on Safari, and the user used FIDO to authenticate for first factor login, then check the AAGUID
+    # of the registration that was used, and if it was the Apple platform authenticator, do not solicit.
+    - if:
+        match: (context.discoveryInfoObj.isSafari == true &amp;&amp; has(idsuser.ff_fido2_id))
+        block:
+            - context: &gt;
+                fidoRegistration = user.getFIDO2RegistrationByID(idsuser.ff_fido2_id)
+
+    # Cannot nest the if statement. Repeat safari condition here but with the check for the aaguid of the registration
+    - if:
+        match: (context.discoveryInfoObj.isSafari == true &amp;&amp; has(idsuser.ff_fido2_id) &amp;&amp; context.fidoRegistration.attributes.aaGuid.toLower() == "fbfc3007-154e-4ecc-8c0b-6e020557d7bd")
+        block:
+            - context: &gt;
+                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: user on safari already used platform authenticator")
             - context: &gt;
                 solicitRegistration = "false"
 

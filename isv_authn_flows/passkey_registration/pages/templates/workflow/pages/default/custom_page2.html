@@ -10,6 +10,8 @@
             const LS_AMBIENT_CREDENTIALS = "ambientCredentials";
             var isUVPAA;
             var isAutofillAvailable;
+            var isSafariFlag;
+            var doPasskeysWorkHere;
 
             function webAuthnAvailable() {
                 return !(typeof(PublicKeyCredential) == undefined);
@@ -20,11 +22,71 @@
                 return (acStr == null ? { users: {} } : JSON.parse(acStr));
             }
 
+            // Safari 3.0+ "[object HTMLElementConstructor]"
+            function isSafari() {
+                return /constructor/i.test(window.HTMLElement) || (function(p) {
+                    return p.toString() === "[object SafariRemoteNotification]";
+                })(!window['safari'] || (typeof safari !== 'undefined' && safari.pushNotification));
+            }
+
+            /**
+             *  This function is designed to detect if we are running on a browser platform
+             *  capable of WebAuthn login. In particular it is designed to filter out web widgets
+             *  that are causing trouble on Mac platforms with thick Microsoft clients like
+             *  Outlook, Teams, and even the Apple Internet Accounts integration for Microsoft Exchange.
+             *  In those cases, and other cases where WebAuthn won't work, we should see this resolving to false.
+             */
+            function clientSupportsPasskeys() {
+                return new Promise((resolve, reject) => {
+                    
+                    try {
+                        // if not a browser, then no
+                        if (!window) {
+                            resolve(false);
+                        }
+
+                        // if PublicKeyCredential is not available, then no
+                        else if (typeof(PublicKeyCredential) == undefined) {
+                            resolve(false);
+                        } 
+
+                        // if this is a browser on Linux, say yes
+                        // we know Linux does not have uvpaa, however browsers on Linux support FIDO
+                        else if (navigator.appVersion.indexOf("Linux") != -1) {
+                            resolve(true);
+                        }
+                        // otherwise resolve based on whether or not PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable returns true
+                        // since web widget returns false for this (at least on Mac), and modern OSs other than Linux covered above should
+                        // return true
+                        else {
+                            PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                            .then((isUVPAA) => { console.log("isuvpaa returned"); resolve(isUVPAA); })
+                            .catch((e) => { resolve(false); })
+                        }
+                    } catch (err) {
+                        resolve(false);
+                    }
+                });
+            }  
+
             function performWebAuthnFeatureDiscovery() {
                 let allPromises = [];
+
+                isSafariFlag = isSafari();
+
                 if (webAuthnAvailable()) {
                     isUVPAA = false;
                     isAutofillAvailable = false; 
+                    doPasskeysWorkHere = false;
+
+                    allPromises.push(
+                        clientSupportsPasskeys()
+                        .then((x) => {
+                            doPasskeysWorkHere = x;
+                        }).catch((e) => {
+                            console.log("Error calling offerPasskeyLogin: " + e); 
+                        })
+                    );
 
                     // if the new getClientCapabilities API is available, prefer that
                     if (typeof PublicKeyCredential.getClientCapabilities != 'undefined') {
@@ -67,6 +129,8 @@
                 performWebAuthnFeatureDiscovery().then(() => {
                     document.getElementById("discoveryInfo").value = JSON.stringify({
                         "cookie": document.cookie,
+                        "isSafari": isSafariFlag,
+                        "doPasskeysWorkHere": doPasskeysWorkHere,
                         "isUVPAA": isUVPAA,
                         "isAutofillAvailable": isAutofillAvailable,
                         "ambientCredentials": getAmbientCredentials()

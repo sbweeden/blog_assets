@@ -35,20 +35,6 @@
         /************************** Passkey enrolement customization ***********************/
         // Added for platform passkey enrolment
 
-        //
-        // TODO - when ISV provides an indication of authenticatorAttachment in the runtime flow,
-        // selectively choose to solicit the platform passkey if the attachment in the current
-        // authentication flow was NOT platform.
-        // This will support the scenario of the user first performing the cross-device 
-        // authentication flow then updating to a local platform passkey. 
-        //
-        // For now though, accept all passkeys since we only trigger solicitied registration
-        // based on whether or not the user first logged in with FIDO at all.
-        //
-
-        // If you only want to solicit registration of the platform authenticator, uncomment this line
-        //attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
-
         attestationOptions.authenticatorSelection.residentKey = "required";
 
         // remove the excludeCredentials list, and allow overwrite of the platform authenticator registration
@@ -73,7 +59,6 @@
           // by detecting if data type conversions have already been performed
           // and hiding the error at the start
           function solicitedPasskeyRegisterDevice() {
-
             document.getElementById('customErrorDiv').style = "display:none;";
             document.getElementById('abortlinkdiv').style = "display:none;";
 
@@ -96,11 +81,14 @@
               }
             }
 
-            navigator.credentials.create({
-                publicKey: response
-              })
+            let credCreateOptions = {
+              publicKey: response
+            };
+            console.log("solicitedPasskeyRegisterDevice: calling navigator.credentials.create with options: " + JSON.stringify(credCreateOptions));
+
+            navigator.credentials.create(credCreateOptions)
               .then(success)
-              .catch(myFailedStepup)
+              .catch(myFailedStepup);
           }
 
           //
@@ -280,11 +268,6 @@
             }
             document.getElementById("enroll").style.display = "block";
          }         
-     </script>
-     <script>
-         window.addEventListener("load", () => {
-            document.getElementById("register-button").click();
-         });
      </script>
      <script>
          // original cbor.js
@@ -1123,7 +1106,7 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
             if (aaguid != null) {
               let candidate = aaguidLookupTable[aaguid];
               if (candidate != null && candidate.name != null) {
-                  fidoNickname = candidate.name;
+                  fidoNickname = candidate.name + "-" + (new Date()).toUTCString();
               }
             } 
             
@@ -1140,16 +1123,74 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
          }
      </script>
      <script>
+            //
+            // This block is used on page startup to:
+            // 1. Perform discovery of isUserVerifyingPlatformAuthenticatorAvailable and set create options and instructions appropriately.
+            // 2. Kickoff registration immediately.
+            //
+            var isUVPAA;
+            function webAuthnAvailable() {
+                return !(typeof(PublicKeyCredential) == undefined);
+            }
+
+            function performWebAuthnFeatureDiscovery() {
+                let allPromises = [];
+                if (webAuthnAvailable()) {
+                    isUVPAA = false;
+
+                    // if the new getClientCapabilities API is available, prefer that
+                    if (typeof PublicKeyCredential.getClientCapabilities != 'undefined') {
+                        console.log("Using PublicKeyCredential.getClientCapabilities for discovery");
+                        allPromises.push(
+                            PublicKeyCredential.getClientCapabilities()
+                            .then((x) => { 
+                                isUVPAA = (x.userVerifyingPlatformAuthenticator == true);
+                            }).catch((e) => { 
+                                console.log("Error calling PublicKeyCredential.getClientCapabilities: " + e); 
+                            })
+                        );
+
+                    } else {
+                        console.log("Using WebAuthn L2 discovery APIs");
+                        // use original discovery APIs
+                        if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable != 'undefined') {
+                            allPromises.push(
+                                PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                                .then((x) => { isUVPAA = x; })
+                                .catch((e) => { console.log("Error calling PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable: " + e); })
+                            );
+                        }
+                    }
+
+                }
+                // now return all the promises
+                return Promise.all(allPromises);
+            }
+
+            function determineAuthenticatorAttachment() {
+                performWebAuthnFeatureDiscovery().then(() => {
+                  // isUVPAA should now be set
+                  if (isUVPAA) {
+                      console.log("isUVPAA is true, soliciting platform authenticator registration");
+                      attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
+                      document.getElementById("enrollmentHeadingDiv").innerText = "Add a platform passkey";
+                      document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism to authenticate on the web";
+                  } else {
+                    console.log("isUVPAA is false, soliciting any passkey registration");
+                    document.getElementById("enrollmentHeadingDiv").innerText = "Add a passkey";
+                      document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism, a mobile device, or a hardware security key to authenticate on the web";
+                  }
+
+                  // now auto-start the registration process!
+                  document.getElementById("register-button").click();
+                });
+            }
+     </script>
+     <script>
          // Change some titles and instructions based on whether or not we are          
          // soliciting registration for the platform authenticator or any passkey provider
          window.addEventListener("load", () => {
-             if (attestationOptions.authenticatorSelection.authenticatorAttachment == "platform") {
-                 document.getElementById("enrollmentHeadingDiv").innerText = "Add a platform passkey";
-                 document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism to authenticate on the web";
-             } else {
-                 document.getElementById("enrollmentHeadingDiv").innerText = "Add a passkey";
-                 document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism, a mobile device, or a hardware security key to authenticate on the web";
-             }
+            determineAuthenticatorAttachment();
          });
           
          // use a MutationObserver to trigger passkey nickname generation and automatic population into the 
