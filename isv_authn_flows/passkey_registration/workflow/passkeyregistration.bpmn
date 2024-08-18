@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?><bpmn2:definitions xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" exporter="Camunda Modeler" exporterVersion="5.0.0" id="_FXeIoKhnEeOC4LOKh_69JQ" targetNamespace="isv_customtasks" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:isv="http://ibm.com/bpmn/isv" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"><bpmn2:process camunda:historyTimeToLive="1" id="passkeyregistration" isExecutable="true" isv:propertiesSchemaVersion="1.0" name="PasskeyRegistration"><bpmn2:startEvent camunda:displayName="Start event" id="Event_0onayf9"><bpmn2:outgoing>Flow_0ei92ns</bpmn2:outgoing></bpmn2:startEvent><bpmn2:endEvent camunda:displayName="End event" id="Event_0x6b6nn_customId"><bpmn2:incoming>Flow_17xjt7s</bpmn2:incoming></bpmn2:endEvent><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.CustomRuleTask" id="isv_function_1698026238114_customId" name="WorkflowPreChecks"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="inputData" name="inputData">statements:
-    - context: &gt;
-        logToServer := hc.Post("https://fidointerop.securitypoc.com/dump", {}, "WorkflowPreCheck context: "+jsonToString({
+    - debug: &gt;
+        "WorkflowPreCheck context: "+jsonToString({
             "ctx": ctx,
             "idsuser": idsuser,
             "user": user
-        }))
+        })
+
+
     - context: &gt;
         theme := has(ctx.themeId) ? ctx.themeId : ''
     - context: &gt;
@@ -32,8 +34,16 @@
             "user": { "id": idsuser.getValue("uid") }
         }
 </isv:inputParameter><isv:outputParameter id="json" name="JSON"/></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_0ei92ns</bpmn2:incoming><bpmn2:incoming>Flow_0294cer</bpmn2:incoming><bpmn2:outgoing>Flow_0rnl1yw</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_0ei92ns" sourceRef="Event_0onayf9" targetRef="isv_function_1698026238114_customId"/><bpmn2:sequenceFlow id="Flow_0rnl1yw" sourceRef="isv_function_1698026238114_customId" targetRef="Gateway_0z4vagv_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.RenderHTMLTask" id="isv_page_1698028449760_customId" name="RedirectToTargetPage"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="themeId" name="themeId">949743b2-a96c-40e0-853e-7bfc8971e17b</isv:inputParameter><isv:inputParameter id="templatename" name="templateName">custom_page1</isv:inputParameter><isv:inputParameter id="callback" name="callback"/><isv:inputParameter id="signal" name="signal"/></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_0zwnyxg</bpmn2:incoming><bpmn2:incoming>Flow_1fqz9sa</bpmn2:incoming><bpmn2:incoming>Flow_0itrf19</bpmn2:incoming><bpmn2:incoming>Flow_0xnjkqy</bpmn2:incoming><bpmn2:outgoing>Flow_17xjt7s</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_17xjt7s" sourceRef="isv_page_1698028449760_customId" targetRef="Event_0x6b6nn_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.RenderHTMLTask" id="isv_page_1698035362199_customId" name="PasskeyClientSideDiscovery"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="themeId" name="themeId">949743b2-a96c-40e0-853e-7bfc8971e17b</isv:inputParameter><isv:inputParameter id="templatename" name="templateName">custom_page2</isv:inputParameter><isv:inputParameter id="callback" name="callback"/><isv:inputParameter id="signal" name="signal">discoverySignal</isv:inputParameter></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_0mxj3lb</bpmn2:incoming><bpmn2:outgoing>Flow_068dtly</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_068dtly" sourceRef="isv_page_1698035362199_customId" targetRef="Event_199yiau_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.CustomRuleTask" id="isv_function_1698035424723_customId" name="PostDiscovery"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="inputData" name="inputData">statements:
-    - context: &gt;
-        logToServer := hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: "+jsonToString(ctx))
+    - debug: &gt;
+        "debug: WorkflowPreCheck context: "+jsonToString({
+            "ctx": ctx,
+            "idsuser": idsuser,
+            "user": user
+        })
+
+statements:
+    - debug: &gt;
+        "PostDiscovery: "+jsonToString(ctx)
     #        
     # This algorithm determines whether or not we should prompt for solicited registration based on information discovered from
     # client-side discovery collection.       
@@ -53,8 +63,8 @@
     - if:
         match: (has(context.discoveryInfoObj, "cookie") &amp;&amp; context.discoveryInfoObj.cookie.contains("passkeyworkflowcomplete=true;"))
         block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: workflow already completed")
+            - debug: &gt;
+                "PostDiscovery: workflow already completed"
             - context: &gt;
                 solicitRegistration = "false"
 
@@ -62,8 +72,8 @@
     - if:
         match: (context.solicitRegistration == "true" &amp;&amp; has(ctx, "myusername") &amp;&amp; has(context.discoveryInfoObj, "ambientCredentials") &amp;&amp; has(context.discoveryInfoObj.ambientCredentials, "users") &amp;&amp; has(context.discoveryInfoObj.ambientCredentials.users, ctx.myusername) &amp;&amp; has(context.discoveryInfoObj.ambientCredentials.users[ctx.myusername], "useFIDO") &amp;&amp; context.discoveryInfoObj.ambientCredentials.users[ctx.myusername].useFIDO == false)
         block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: user has opted out")
+            - debug: &gt;
+                "PostDiscovery: user has opted out"
             - context: &gt;
                 solicitRegistration = "false"
 
@@ -71,8 +81,8 @@
     - if:
         match: (context.solicitRegistration == "true" &amp;&amp; has(context.discoveryInfoObj, "doPasskeysWorkHere") &amp;&amp; context.discoveryInfoObj.doPasskeysWorkHere == false)
         block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: client does not support passkeys")
+            - debug: &gt;
+                "PostDiscovery: client does not support passkeys"
             - context: &gt;
                 solicitRegistration = "false"
 
@@ -81,8 +91,8 @@
     - if:
         match: (context.solicitRegistration == "true" &amp;&amp; has(context.discoveryInfoObj, "isUVPAA") &amp;&amp; context.discoveryInfoObj.isUVPAA == false)
         block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: client does not support uvpaa")
+            - debug: &gt;
+                "PostDiscovery: client does not support uvpaa"
             - context: &gt;
                 solicitRegistration = "false"
 
@@ -91,8 +101,8 @@
     - if:
         match: (context.discoveryInfoObj.isSafari != true &amp;&amp; (has(idsuser.usedFIDOPlatformAuthenticator) &amp;&amp; idsuser.usedFIDOPlatformAuthenticator == "true"))
         block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: user already authenticated with FIDO platform authenticator")
+            - debug: &gt;
+                "PostDiscovery: user already authenticated with FIDO platform authenticator"
             - context: &gt;
                 solicitRegistration = "false"
 
@@ -108,8 +118,8 @@
     - if:
         match: (context.discoveryInfoObj.isSafari == true &amp;&amp; has(idsuser.ff_fido2_id) &amp;&amp; context.fidoRegistration.attributes.aaGuid.toLower() == "fbfc3007-154e-4ecc-8c0b-6e020557d7bd")
         block:
-            - context: &gt;
-                logToServer = hc.Post("https://fidointerop.securitypoc.com/dump", {}, "PostDiscovery: user on safari already used platform authenticator")
+            - debug: &gt;
+                "PostDiscovery: user on safari already used platform authenticator"
             - context: &gt;
                 solicitRegistration = "false"
 
@@ -119,8 +129,8 @@
             "passkeyUrl": 'https://' + ctx.__tenantid + '/authsvc/mtfim/sps/authsvc?PolicyId=urn:ibm:security:authentication:asf:enrollmfa&amp;factors=fido2&amp;themeId=' + (has(ctx.themeId) ? ctx.themeId : '')
         }
 </isv:inputParameter><isv:outputParameter id="json" name="JSON"/></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_1ceylv0</bpmn2:incoming><bpmn2:outgoing>Flow_154ot5x</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:intermediateCatchEvent id="Event_199yiau_customId" name="discovery"><bpmn2:incoming>Flow_068dtly</bpmn2:incoming><bpmn2:outgoing>Flow_1ceylv0</bpmn2:outgoing><bpmn2:messageEventDefinition id="MessageEventDefinition_1af9x1m" messageRef="Message_1xi624g"/></bpmn2:intermediateCatchEvent><bpmn2:sequenceFlow id="Flow_1ceylv0" sourceRef="Event_199yiau_customId" targetRef="isv_function_1698035424723_customId"/><bpmn2:exclusiveGateway id="Gateway_0z4vagv_customId"><bpmn2:incoming>Flow_0rnl1yw</bpmn2:incoming><bpmn2:outgoing>Flow_04jds5m</bpmn2:outgoing><bpmn2:outgoing>Flow_0mxj3lb</bpmn2:outgoing><bpmn2:outgoing>Flow_0itrf19</bpmn2:outgoing></bpmn2:exclusiveGateway><bpmn2:sequenceFlow id="Flow_154ot5x" sourceRef="isv_function_1698035424723_customId" targetRef="Gateway_1mkugbs_customId"/><bpmn2:exclusiveGateway id="Gateway_1mkugbs_customId" name="shouldSolicitRegistration"><bpmn2:incoming>Flow_154ot5x</bpmn2:incoming><bpmn2:outgoing>Flow_125yb10</bpmn2:outgoing><bpmn2:outgoing>Flow_0zwnyxg</bpmn2:outgoing></bpmn2:exclusiveGateway><bpmn2:sequenceFlow id="Flow_125yb10" name="solicitRegistration" sourceRef="Gateway_1mkugbs_customId" targetRef="isv_page_1698212528106_customId"><bpmn2:conditionExpression xsi:type="bpmn2:tFormalExpression">${S(workflow_context).prop("solicitRegistration").stringValue() == "true"}</bpmn2:conditionExpression></bpmn2:sequenceFlow><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.RenderHTMLTask" id="isv_page_1698212528106_customId" name="PromptForPasskeyOptIn"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="themeId" name="themeId">949743b2-a96c-40e0-853e-7bfc8971e17b</isv:inputParameter><isv:inputParameter id="templatename" name="templateName">custom_page3</isv:inputParameter><isv:inputParameter id="callback" name="callback"/><isv:inputParameter id="signal" name="signal">passkeyOptIn</isv:inputParameter></isv:inputOutput></bpmn2:extensionElements><bpmn2:incoming>Flow_125yb10</bpmn2:incoming><bpmn2:outgoing>Flow_1mhyw82</bpmn2:outgoing></bpmn2:serviceTask><bpmn2:sequenceFlow id="Flow_1mhyw82" sourceRef="isv_page_1698212528106_customId" targetRef="Event_0h47bke_customId"/><bpmn2:intermediateCatchEvent id="Event_0h47bke_customId" name="passkeyOptIn"><bpmn2:incoming>Flow_1mhyw82</bpmn2:incoming><bpmn2:outgoing>Flow_0wo1sl3</bpmn2:outgoing><bpmn2:messageEventDefinition id="MessageEventDefinition_0cyle7x" messageRef="Message_0gk3s9f"/></bpmn2:intermediateCatchEvent><bpmn2:sequenceFlow id="Flow_0wo1sl3" sourceRef="Event_0h47bke_customId" targetRef="isv_function_1698212756693_customId"/><bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.CustomRuleTask" id="isv_function_1698212756693_customId" name="ProcessPasskeyOptIn"><bpmn2:extensionElements><isv:inputOutput><isv:inputParameter id="inputData" name="inputData">statements:
-    - context: &gt;
-        logToServer := hc.Post("https://fidointerop.securitypoc.com/dump", {}, "ProcessPasskeyOptIn: "+jsonToString(ctx))
+    - debug: &gt;
+        "ProcessPasskeyOptIn: "+jsonToString(ctx))
     - return: &gt;
         {
             "passkeyOptIn": (context.passkeyOperation == "register" ? "true" : "false"),
