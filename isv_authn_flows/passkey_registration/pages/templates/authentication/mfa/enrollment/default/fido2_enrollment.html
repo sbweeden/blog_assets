@@ -53,11 +53,17 @@
 
 
       </script>
+
+      <!--
+        This next script block replaces the functions normally provided by srcing in
+        /authsvc/mtfim/sps/static/fido2_register.js
+
+        since there are just too many differences for solicited passkey registration
+      -->
       <script type="text/javascript">
 
-          // just like the original testFidoDevice function, but designed to be re-entrant on a failure
-          // by detecting if data type conversions have already been performed
-          // and hiding the error at the start
+          // similar to the testFidoDevice function from fido2_register.js, but designed to be re-entrant on a failure
+          // by detecting if data type conversions have already been performed and hiding the error at the start
           function solicitedPasskeyRegisterDevice() {
             document.getElementById('customErrorDiv').style = "display:none;";
             document.getElementById('abortlinkdiv').style = "display:none;";
@@ -87,9 +93,60 @@
             console.log("solicitedPasskeyRegisterDevice: calling navigator.credentials.create with options: " + JSON.stringify(credCreateOptions));
 
             navigator.credentials.create(credCreateOptions)
-              .then(success)
+              .then(mySuccess)
               .catch(myFailedStepup);
           }
+
+
+          function mySuccess(credInfo) {
+            enrollCredInfo = {
+               enabled: true,
+               id: credInfo.id,
+               rawId: credInfo.id,
+               response: {
+                  attestationObject: hextob64u(BAtohex(new Uint8Array(credInfo.response.attestationObject))),
+                  clientDataJSON: hextob64u(BAtohex(new Uint8Array(credInfo.response.clientDataJSON)))
+               },
+               type: credInfo.type
+            };
+
+            // add authenticatorAttachment if avaialble
+            try {
+	          	if (credInfo.authenticatorAttachment !== undefined && credInfo.authenticatorAttachment != null) {
+			          enrollCredInfo.authenticatorAttachment = credInfo.authenticatorAttachment; // This will either be "platform" or "cross-platform"
+		          }
+	          } catch(err) {
+              // ignore errors
+            }
+
+            // add getTransports if avaialble
+            try {
+              if (credInfo.response.getTransports !== undefined && credInfo.response.getTransports() != null) {
+			          enrollCredInfo.getTransports = credInfo.response.getTransports(); 
+		          }
+		        } catch(err) {
+              // ignore errors
+            }
+
+            // Hide the prepare instructions
+            var prepare = document.getElementById("prepare");
+            if (prepare != null || prepare != undefined) {
+               prepare.style.display = "none";	
+            }
+            document.getElementById("instructions").style.display = "none";
+
+            // pre-populate the nickname value
+            document.getElementById('nickname').value = generatePasskeyNickname();
+
+            // Show the nickname input
+            var nameInput = document.getElementById("name-input");
+            if (nameInput != null || nameInput != undefined) {
+               nameInput.style.display = "block";
+            }
+            
+            // show it
+            document.getElementById("enroll").style.display = "block";
+         }
 
           //
           // calls the original failedStepup
@@ -98,7 +155,15 @@
           //
           function myFailedStepup(er) {
             document.getElementById('register-button').innerText = "Retry passkey registration";
-            failedStepup(er);
+            
+            // taken from the original failedStepup
+            console.log("failed in attestation.");
+            console.log(er);
+            document.getElementById("errorMsg").innerText = labelFido2Error;
+            document.getElementById("errorMsgDetails").innerText = er.message ? er.message : "";
+            document.getElementById("register-button").disabled = false;
+
+            // now show the error and abort link
             document.getElementById('customErrorDiv').style = "display:block;";
             document.getElementById('abortlinkdiv').style = "display:block;";
           }
@@ -125,6 +190,25 @@
             document.cookie = "workflowcallbackurl=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.replace(redirectURL);
           }
+
+          // used to submit the final registration response to the server
+          function registerFidoDevice(event) {
+            event.preventDefault();
+            var nickname = document.getElementById("nickname").value;
+            if (nickname.trim().length === 0) {
+              document.getElementById("cs-error-message").innerText = nicknameError;
+              return false;
+            } else {
+              document.getElementById("cs-error-message").innerText = "";
+            }
+            document.getElementById("verify-button").disabled = true;
+            enrollCredInfo.nickname = nickname;
+            var payload = JSON.stringify(enrollCredInfo);
+            console.log(payload);
+            document.getElementById("register").attestationResponse.value = payload;
+            document.getElementById("register").submit();
+          }          
+
       </script>
 	  <style>
 		li.instructions {
@@ -233,42 +317,12 @@
          </div>
          @PAGE_FOOTER@
       </div>
-	  <script type="text/javascript" src="/authsvc/mtfim/sps/static/fido2_register.js"></script>
-     <script>
-         var responseTransports = [];
 
-         // override this function from previous fido2_register.js src
-         function success(credInfo) {
-            if (credInfo.response.getTransports !== undefined) {
-               responseTransports = credInfo.response.getTransports();
-            }
-
-            enrollCredInfo = {
-               enabled: true,
-               id: credInfo.id,
-               rawId: credInfo.id,
-               response: {
-                  attestationObject: hextob64u(BAtohex(new Uint8Array(credInfo.response.attestationObject))),
-                  clientDataJSON: hextob64u(BAtohex(new Uint8Array(credInfo.response.clientDataJSON)))
-               },
-               type: credInfo.type
-            };
-
-            // Hide
-            var prepare = document.getElementById("prepare");
-            if (prepare != null || prepare != undefined) {
-               prepare.style.display = "none";	
-            }
-            document.getElementById("instructions").style.display = "none";
-
-            // Show
-            var nameInput = document.getElementById("name-input");
-            if (nameInput != null || nameInput != undefined) {
-               nameInput.style.display = "block";
-            }
-            document.getElementById("enroll").style.display = "block";
-         }         
-     </script>
+      <!--
+        Following script tags provide all the underlying capabilities required to introspect the registration
+        response and determine the AAGUID and declared sync status of the registration. This allows us to 
+        implement an auto-naming feature for the nickname generation.
+      -->
      <script>
          // original cbor.js
 /*
@@ -1174,11 +1228,11 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
                       console.log("isUVPAA is true, soliciting platform authenticator registration");
                       attestationOptions.authenticatorSelection.authenticatorAttachment = "platform";
                       document.getElementById("enrollmentHeadingDiv").innerText = "Add a platform passkey";
-                      document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism to authenticate on the web";
+                      document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism to authenticate on the web.";
                   } else {
                     console.log("isUVPAA is false, soliciting any passkey registration");
                     document.getElementById("enrollmentHeadingDiv").innerText = "Add a passkey";
-                      document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism, a mobile device, or a hardware security key to authenticate on the web";
+                      document.getElementById("instructionsTextDiv").innerText = "Use your device unlock mechanism, a mobile device, or a hardware security key to authenticate on the web.";
                   }
 
                   // now auto-start the registration process!
@@ -1187,24 +1241,11 @@ CBOR.decodeVariable = function(data, tagger, simpleValue) {
             }
      </script>
      <script>
-         // Change some titles and instructions based on whether or not we are          
-         // soliciting registration for the platform authenticator or any passkey provider
+         // Set titles and instructions based on whether or not we are soliciting registration for 
+         // only the platform authenticator or any passkey, then autostart registration
          window.addEventListener("load", () => {
             determineAuthenticatorAttachment();
-         });
-          
-         // use a MutationObserver to trigger passkey nickname generation and automatic population into the 
-         // nickname entry field once the enroll element display style is set to 'block'. This is the only
-         // way I could figure out how to know when the registration response was available for introspection.
-         let observer = new MutationObserver(function (mutations) {
-            mutations.forEach((m) => {
-               // leap of faith here since this is the only mutation we are listening for
-               if (enrollCredInfo != null) {
-                  document.getElementById('nickname').value = generatePasskeyNickname();
-               }               
-            });
-         })
-         observer.observe(document.getElementById('enroll'), { attributes: true, attributeFilter: [ 'style'] } );
+         });          
      </script>
    </body>
 </html>
