@@ -217,6 +217,19 @@
 		ol {
 			margin-left: 5%;
 		}
+    #errorMsg {
+      color: red;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-top: 1rem;
+    }
+    #errorMsgDetails {
+      color: red;
+      font-weight: normal;
+      font-size: .875rem;
+      padding-top: .5rem;
+    }
+
 	  </style>
    </head>
    <body>
@@ -253,11 +266,11 @@
 				 <button class="cs-button bx--btn bx--btn--primary" id="register-button" onclick="solicitedPasskeyRegisterDevice()">Register a passkey</button>
 			  </div>
         <!-- This is new for allowing cancel -->
-        <div id="abortlinkdiv" style="display:none;">
+         <div id="abortlinkdiv" style="display:none;">
           <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
             <a onclick="abortPasskeyRegistration()" href="javascript:void(0)">Abort passkey registration</a>
           </div>
-        </div>
+      </div>
              <!--
 			  <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
 				 <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a>
@@ -266,18 +279,10 @@
 			  <div style="clear: both"></div>
 		   </div>
        <div id="customErrorDiv" style="display:none">
-        <h3>Error Message</h3>
-        <p></p>
-        <p></p>
+        
         <div id="errorMsg"></div>
-        <p></p>
-        <p></p>
-        <h3>Error Details</h3>
-        <p></p>
-        <p></p>
         <div id="errorMsgDetails"></div>    
-        <p></p>
-        <p></p>
+
        </div>
         </div>
 
