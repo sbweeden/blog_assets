@@ -32,6 +32,36 @@ if (fidoutilsConfig == null) {
 /*
 * Collection of functions useful to emulate a FIDO2 client
 */
+
+// CBOR encodes an object, returning results as a byte array
+function myCBOREncode(o) {
+	result = bytesFromArray((new Uint8Array(CBOR.encode(o))), 0, -1);
+	return result;
+}
+
+// Some data structures in FIDO authenticators that are arrays of bytes
+// need to be encoded as a CBOR byte string rather than a CBOR array of unsigned integers.
+// Our CBOR encoder will encode Buffer to byte string, so this utility function
+// is called when what we have is a byte array and what we need CBOR encoded is a byte string.
+function prepareBAForCBOR(ba) {
+	return (new Uint8Array(ba));
+}
+
+//
+// Prepare a COSE key for CBOR encoding. Co-ordinate values are 
+// required to be byte strings.
+//
+function prepareCOSEKeyForCBOREncoding(coseKey) {
+	// create a Map, treating object keys as integers (notice call to parseInt below) and converting byte array values to 
+	// a Buffer so that CBOR encoding of a COSE key results in integer keys and coordinates as byte strings
+	let result = {};
+	for (const [k,v] of Object.entries(coseKey)) {
+		let newValue = ((v instanceof Array) ? prepareBAForCBOR(v) : v);
+		result[k] = newValue;
+	}
+	return result;
+}
+
 /**
  * Converts the bytes of an asn1-encoded X509 ceritificate or raw public key
  * into a PEM-encoded cert string
@@ -344,7 +374,7 @@ function processCredentialCreationOptions(cco, attestationFormat = 'none', up = 
 	attestedCredentialData.push(...credIdBytes);
 	
 	// credential public key - take bytes from CBOR encoded COSE key
-	var credPublicKeyBytes = bytesFromArray(new Uint8Array(CBOR.encode(credPublicKeyCOSE)), 0, -1);
+	var credPublicKeyBytes = myCBOREncode(prepareCOSEKeyForCBOREncoding(credPublicKeyCOSE));
 	attestedCredentialData.push(...credPublicKeyBytes);
 	
 	// add attestedCredentialData to authData
@@ -368,11 +398,11 @@ function processCredentialCreationOptions(cco, attestationFormat = 'none', up = 
 	}
 	
 	// build the attestationObject
-	var attestationObject = {"fmt": attestationFormat, "attStmt": attStmt, "authData": authData };
+	var attestationObject = {"fmt": attestationFormat, "attStmt": attStmt, "authData": prepareBAForCBOR(authData) };
 	
 	
 	// add the base64url of the CBOR encoding of the attestationObject to the response
-	saar.attestationObject = hextob64u(BAtohex(bytesFromArray(new Uint8Array(CBOR.encode(attestationObject)), 0, -1)));
+	saar.attestationObject = hextob64u(BAtohex(myCBOREncode(attestationObject)));
 	
 	// construct ServerPublicKeyCredential fields
 		
@@ -617,7 +647,7 @@ function buildFidoU2FAttestationStatement(keypair, clientDataHash, authData, cre
 	var attestationCert = new X509();
 	attestationCert.readCertPEM(certToPEM(b64toBA(fidoutilsConfig["fido-u2f"].cert)));
 	// populate x5c of attStmt with one entry - the bytes of the self-signed attestation cert 
-	attStmt.x5c = [ b64toBA(hextob64(attestationCert.hex)) ];
+	attStmt.x5c = [ prepareBAForCBOR(b64toBA(hextob64(attestationCert.hex))) ];
 	
 	// build sigBase
 	var rpidhashBytes = bytesFromArray(authData, 0, 32);
@@ -630,7 +660,7 @@ function buildFidoU2FAttestationStatement(keypair, clientDataHash, authData, cre
 	sig.init(ecdsa);
 	sig.updateHex(BAtohex(sigBase));
 	var sigValueHex = sig.sign();
-	attStmt.sig = b64toBA(hextob64(sigValueHex));
+	attStmt.sig = prepareBAForCBOR(b64toBA(hextob64(sigValueHex)));
 	return attStmt;
 }
 function buildPackedAttestationStatement(keypair, clientDataHash, authData, credIdBytes, useSelfAttestation) {
@@ -651,7 +681,7 @@ function buildPackedAttestationStatement(keypair, clientDataHash, authData, cred
 		// if not using self attestation, include the attestation cert as x5c
 		var attestationCert = new X509();
 		attestationCert.readCertPEM(certToPEM(b64toBA(fidoutilsConfig.packed.cert)));
-		attStmt.x5c = [ b64toBA(hextob64(attestationCert.hex)) ];
+		attStmt.x5c = [ prepareBAForCBOR(b64toBA(hextob64(attestationCert.hex))) ];
 	}
 	
 	
@@ -663,7 +693,7 @@ function buildPackedAttestationStatement(keypair, clientDataHash, authData, cred
 	sig.init(ecdsa);
 	sig.updateHex(BAtohex(sigBase));
 	var sigValueHex = sig.sign();
-	attStmt.sig = b64toBA(hextob64(sigValueHex));
+	attStmt.sig = prepareBAForCBOR(b64toBA(hextob64(sigValueHex)));
 	return attStmt;
 }
 function generateRandom(len) {
