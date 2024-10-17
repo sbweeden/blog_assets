@@ -10,6 +10,14 @@
         [http-transformations:certeai]
         request-match = request:POST /certeai *
         =============
+		
+		You would also need to set up certificate EAI to point at /certeai.
+		
+		For information on the openssl.x509 APIs, consult the luaossl PDF found here: 
+			https://www.25thandclement.com/~william/projects/luaossl.pdf
+			
+		This is referenced from: https://luarocks.org/modules/daurnimator/luaossl
+		
 --]]
 
 local cjson = require "cjson"
