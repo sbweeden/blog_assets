@@ -1,6 +1,6 @@
 --[[
-	A response transformation that takes a particular credential attribute and adds
-    its values to a request HTTP header
+	A transformation (suggest running this in postazn phase) that takes credential attributes and adds
+    their values as HTTP request headers
 --]]
 local cjson = require 'cjson'
 local urlencode = require 'urlencode'
