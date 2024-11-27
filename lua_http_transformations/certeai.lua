@@ -62,6 +62,20 @@ function errorResponse(str)
     Control.responseGenerated(true)
 end
 
+-- decodes a DirectoryString (see DirectoryString definition in https://datatracker.ietf.org/doc/html/rfc5280)
+-- PrintableString=19, TeletexString=20 (aka T61String), UniversalString=28, UTF8String=12, BMPString=30
+function decodeDirectoryString(data)
+    local result = nil
+    local decodeResult = ber.decode(data)
+    if (decodeResult ~= nil and decodeResult["class"] == 0 and decodeResult["data"] ~= nil and (decodeResult["type"] == 19 or decodeResult["type"] == 20 or decodeResult["type"] == 28 or decodeResult["type"] == 12 or decodeResult["type"] == 30)) then
+        result = decodeResult["data"]
+    else
+        result = nil
+        logger.debugLog("decodeDirectoryString invalid ber data")
+    end
+    return result
+end
+
 -- decodes an OID into a printable string
 function decodeOID(data, len)
     -- oid (see https://learn.microsoft.com/en-us/windows/win32/seccertenroll/about-object-identifier)
@@ -184,6 +198,32 @@ function decodeDirName(berData)
     return result
 end
 
+-- Decode the EDIPartyName field of a SAN
+-- This was developed and tested using a sample cert found as an attachment to: https://bugzilla.mozilla.org/show_bug.cgi?id=233586
+function decodeEDIPartyName(berData)
+    --logger.debugLog("decodeEDIPartyName called with berData: " .. logger.dumpAsString(berData))
+    local result = { str = "", array={}}
+    if (berData["type"] == 5 and berData["constructed"] == true and #berData["children"] >= 1) then
+        for k,v in pairs(berData["children"]) do
+            -- each element of the sequence should be either nameAssigner (type=0) or partyName (type=1)
+            if (v["type"] == 0 and v["constructed"] == false and v["data"] ~= nil) then
+                result["array"]["nameAssigner"] = decodeDirectoryString(v["data"])
+            elseif (v["type"] == 1 and v["constructed"] == false and v["data"] ~= nil) then
+                result["array"]["partyName"] = decodeDirectoryString(v["data"])
+            else
+                result = nil
+                logger.debugLog("decodeEDIPartyName invalid children in berData")
+            end
+        end
+    else
+        result = nil
+        logger.debugLog("decodeEDIPartyName invalid berData")
+    end
+    if (result ~= nil) then
+        result["str"] = cjson.encode(result["array"])
+    end
+    return result
+end
 
 --[[
 
@@ -258,9 +298,18 @@ function decodeSubjectAlternativeName(sanData)
                 local dirName = decodeDirName(v)
                 if (dirName ~= nil) then
                     logger.debugLog("dirName: " .. cjson.encode(dirName))
-                    table.insert(result["array"], { dn = dirName})
+                    table.insert(result["array"], {dn = dirName})
                 else
                     logger.debugLog("error decoding dirName - skipping")
+                end
+            elseif (v["type"] == 5 and v["constructed"] == true) then
+                -- ediPartyName
+                local ediPartyName = decodeEDIPartyName(v)
+                if (ediPartyName ~= nil) then
+                    logger.debugLog("ediPartyName: " .. cjson.encode(ediPartyName))
+                    table.insert(result["array"], {ediPartyName = ediPartyName})
+                else
+                    logger.debugLog("error decoding ediPartyName - skipping")
                 end
             elseif (v["type"] == 0 and v["constructed"] == true) then
                 local other = {}
@@ -317,8 +366,6 @@ function logSubjectAlternativeName(san)
 
     local parsedSANData = decodeSubjectAlternativeName(sanData)
     logger.debugLog("logSubjectAlternativeName: " .. cjson.encode(parsedSANData))
-
-    decodeSubjectAlternativeName(sanData)
 end
 
 function getPrincipalNameFromSAN(san)
@@ -349,6 +396,7 @@ MAIN ENTRY POINT STARTS HERE
 
 -- get the certificate from header
 local cert = HTTPRequest.getHeader("cert")
+
 local san = nil
 local sanUPN = nil
 if not cert then
@@ -360,6 +408,7 @@ else
     --logger.debugLog("ocert.getExtensionCount(): " .. ocert:getExtensionCount())
     local subjectAltNameExtension = ocert:getExtension("2.5.29.17")
     if (subjectAltNameExtension ~= nil) then
+        -- for debugging
         logSubjectAlternativeName(subjectAltNameExtension)
         san = decodeSubjectAlternativeName(subjectAltNameExtension:getData())
         sanUPN = getPrincipalNameFromSAN(san)
