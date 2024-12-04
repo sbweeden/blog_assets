@@ -225,6 +225,142 @@ function decodeEDIPartyName(berData)
     return result
 end
 
+-- decode CountryName
+function decodeCountryName(berData)
+    logger.debugLog("decodeCountryName called with berData: " .. logger.dumpAsString(berData))
+    local result = {}
+
+    -- can be a NumericString or PrintableString
+    if ((berData["type"] == 18 or berData["type"] == 19) and berData["constructed"] == false and berData["data"] ~= nil) then
+        local attrName = "x121-dcc-code"
+        if (berData["type"] == 19) then
+            attrName = "iso-3166-alpha2-code"
+        end
+        result[attrName] = berData["data"]
+    else
+        result = nil
+        logger.debugLog("decodeCountryName invalid berData")
+    end
+
+    return result
+end
+
+-- decode AdministrationDomainName
+function decodeAdministrationDomainName(berData)
+    logger.debugLog("decodeAdministrationDomainName called with berData: " .. logger.dumpAsString(berData))
+    local result = {}
+
+    -- can be a NumericString or PrintableString
+    if ((berData["type"] == 18 or berData["type"] == 19) and berData["constructed"] == false and berData["data"] ~= nil) then
+        local attrName = "numeric"
+        if (berData["type"] == 19) then
+            attrName = "printable"
+        end
+        result[attrName] = berData["data"]
+    else
+        result = nil
+        logger.debugLog("decodeAdministrationDomainName invalid berData")
+    end
+
+    return result
+end
+
+-- decodes BuiltInStandardAttributes
+function decodeBuiltInStandardAttributes(berData)
+    logger.debugLog("decodeBuiltInStandardAttributes called with berData: " .. logger.dumpAsString(berData))
+        --[[
+        {
+            ["children"] = {
+                [1] = {
+                    ["children"] = {
+                        [1] = {
+                            ["constructed"] = false,
+                            ["type"] = 19,
+                            ["class"] = 0,
+                            ["data"] = AU,
+                            ["length"] = 2
+                        }
+                    },
+                    ["constructed"] = true,
+                    ["type"] = 1,
+                    ["class"] = 1,
+                    ["data"] = AU,
+                    ["length"] = 4
+                },
+                
+                [2] = {
+                    ["children"] = {
+                        [1] = {
+                            ["constructed"] = false,
+                            ["type"] = 19,
+                            ["class"] = 0,
+                            ["data"] = IBM,
+                            ["length"] = 3
+                        }
+                    },
+                    ["constructed"] = true,
+                    ["type"] = 2,
+                    ["class"] = 1,
+                    ["data"] = IBM,
+                    ["length"] = 5
+                }
+            },
+            ["constructed"] = true,
+            ["type"] = 16,
+            ["class"] = 0,
+            ["data"] = aAUbIBM,
+            ["length"] = 13
+        }		
+        --]]
+    local result = {}
+
+    if (berData["type"] == 16 and berData["constructed"] == true and #berData["children"] >= 1) then
+        for k,v in pairs(berData["children"]) do
+            -- each element of the sequence needs to be detected
+
+            -- is this CountryName
+            if (v["class"] == 1 and v["type"] == 1 and v["constructed"] == true and #v["children"] == 1) then
+                result["CountryName"] = decodeCountryName(v["children"][1])
+
+            -- is this AdministrationDomainName
+            elseif (v["class"] == 1 and v["type"] == 2 and v["constructed"] == true and #v["children"] == 1) then
+                result["AdministrationDomainName"] = decodeAdministrationDomainName(v["children"][1])
+            else
+                -- ignore (just log) elements that we haven't written a decoder for
+                logger.debugLog("decodeBuiltInStandardAttributes unrecognized sequence member: " .. logger.dumpAsString(v))
+            end
+        end
+    else
+        result = nil
+        logger.debugLog("decodeBuiltInStandardAttributes invalid berData")
+    end
+
+    return result
+end
+
+-- Decode the x400Address field of a SAN
+-- See definition of ORAddress in https://datatracker.ietf.org/doc/html/rfc5280
+-- This was developed and tested using a sample cert from IBM GSKit team (Simon).
+function decodeX400Address(berData)
+    logger.debugLog("decodeX400Address called with berData: " .. logger.dumpAsString(berData))
+    local result = {}
+    if (berData["type"] == 3 and berData["constructed"] == true and #berData["children"] >= 1) then
+        -- first child is BuiltInStandardAttributes
+        result["builtInStandardAttributes"] = decodeBuiltInStandardAttributes(berData["children"][1])
+
+        -- if there is a second element in the sequence, it will be BuiltInDomainDefinedAttributes
+        --TODO - consider implementing this
+
+        -- if there is a third element in the sequence, it will be ExtensionAttributes
+        --TODO - consider implementing this
+    else
+        result = nil
+        logger.debugLog("decodeX400Address invalid berData")
+    end
+
+    return result
+end
+
 --[[
 
 Partially decodes the ASN1 SAN data from a certificate
@@ -311,6 +447,15 @@ function decodeSubjectAlternativeName(sanData)
                 else
                     logger.debugLog("error decoding ediPartyName - skipping")
                 end
+            elseif (v["type"] == 3 and v["constructed"] == true) then
+                -- x400Address
+                local x400Address = decodeX400Address(v)
+                if (x400Address ~= nil) then
+                    logger.debugLog("x400Address: " .. cjson.encode(x400Address))
+                    table.insert(result["array"], {x400Address = x400Address})
+                else
+                    logger.debugLog("error decoding x400Address - skipping")
+                end
             elseif (v["type"] == 0 and v["constructed"] == true) then
                 local other = {}
                 -- this is otherName
@@ -396,6 +541,14 @@ MAIN ENTRY POINT STARTS HERE
 
 -- get the certificate from header
 local cert = HTTPRequest.getHeader("cert")
+
+-- test cert from for ediPartyName testing (https://bugzilla.mozilla.org/show_bug.cgi?id=233586)
+--local cert = "MIICujCCAnagAwIBAgIBLDALBgcqhkjOOAQDBQAwKjELMAkGA1UEBhMCdXMxDDAKBgNVBAoTA3N1bjENMAsGA1UECxMEbGFiczAeFw0wNDAyMDkxOTQzNTJaFw0wNDAyMDkxOTQzNTJaMDsxCzAJBgNVBAYTAnVzMQwwCgYDVQQKEwNzdW4xDTALBgNVBAsTBGxhYnMxDzANBgNVBAMTBnlhc3NpcjCCAbcwggEsBgcqhkjOOAQBMIIBHwKBgQD9f1OBHXUSKVLfSpwu7OTn9hG3UjzvRADDHj+AtlEmaUVdQCJR+1k9jVj6v8X1ujD2y5tVbNeBO4AdNG/yZmC3a5lQpaSfn+gEexAiwk+7qdf+t8Yb+DtX58aophUPBPuD9tPFHsMCNVQTWhaRMvZ1864rYdcq7/IiAxmd0UgBxwIVAJdgUI8VIwvMspK5gqLrhAvwWBz1AoGBAPfhoIXWmz3ey7yrXDa4V7l5lK+7+jrqgvlXTAs9B4JnUVlXjrrUWU/mcQcQgYC0SRZxI+hMKBYTt88JMozIpuE8FnqLVHyNKOCjrh4rs6Z1kW6jfwv6ITVi8ftiegEkO8yk8b6oUZCJqIPf4VrlnwaSi2ZegHtVJWQBTDv+z0kqA4GEAAKBgA2SU4K/vPP3bSu89PY+wY9WCpXiXE0P48RS3kCW2xtyMDHD0jWNlXAwOoQtd1xMzDQLP7+rKNiS0DlXcFWYjVq8O6txdXDLBPdOV9jRfCqgmKSqKOOB3Kqbqq5ugNwW3Sfz9+aWdW10L4QNgjGClBFllH5tzZMHaZPAPcc9XKy7oxswGTAXBgNVHREEEDAOpQyBChMIZWRpUGFydHkwCwYHKoZIzjgEAwUAAzEAMC4CFQCNrkXreYTYZQdRbwP0CvtgVF7IfAIVAIaUd40H3/1qE9/Jt4ci+JYBYXz3"
+-- test cert from for x400 name testing (https://bugzilla.mozilla.org/show_bug.cgi?id=233586)
+--local cert = "MIICrzCCAm2gAwIBAgIBOjALBgcqhkjOOAQDBQAwKjELMAkGA1UEBhMCdXMxDDAKBgNVBAoTA3N1bjENMAsGA1UECxMEbGFiczAeFw0wNDAyMTAxODQ1MDlaFw0wNDAyMTAxODQ1MDlaMDsxCzAJBgNVBAYTAnVzMQwwCgYDVQQKEwNzdW4xDTALBgNVBAsTBGxhYnMxDzANBgNVBAMTBnlhc3NpcjCCAbcwggEsBgcqhkjOOAQBMIIBHwKBgQD9f1OBHXUSKVLfSpwu7OTn9hG3UjzvRADDHj+AtlEmaUVdQCJR+1k9jVj6v8X1ujD2y5tVbNeBO4AdNG/yZmC3a5lQpaSfn+gEexAiwk+7qdf+t8Yb+DtX58aophUPBPuD9tPFHsMCNVQTWhaRMvZ1864rYdcq7/IiAxmd0UgBxwIVAJdgUI8VIwvMspK5gqLrhAvwWBz1AoGBAPfhoIXWmz3ey7yrXDa4V7l5lK+7+jrqgvlXTAs9B4JnUVlXjrrUWU/mcQcQgYC0SRZxI+hMKBYTt88JMozIpuE8FnqLVHyNKOCjrh4rs6Z1kW6jfwv6ITVi8ftiegEkO8yk8b6oUZCJqIPf4VrlnwaSi2ZegHtVJWQBTDv+z0kqA4GEAAKBgA2SU4K/vPP3bSu89PY+wY9WCpXiXE0P48RS3kCW2xtyMDHD0jWNlXAwOoQtd1xMzDQLP7+rKNiS0DlXcFWYjVq8O6txdXDLBPdOV9jRfCqgmKSqKOOB3Kqbqq5ugNwW3Sfz9+aWdW10L4QNgjGClBFllH5tzZMHaZPAPcc9XKy7oxIwEDAOBgNVHREEBzAFowMTAWEwCwYHKoZIzjgEAwUAAy8AMCwCFCVcuekcrfkp48dNrG+XMxQFZp1GAhQISBmfZLbT9/g9nw+ci2MkqbDa/w=="
+-- test cert from for x400 name testing (from GSKit - Simon)
+--local cert = "MIIFFzCCAv+gAwIBAgIUZHS2IBfR0kTxNj2UmE19NS0lSoswDQYJKoZIhvcNAQELBQAwDTELMAkGA1UEAwwCQ0EwHhcNMjQxMjAzMDM1NTQyWhcNMjUxMjAzMDM1NTQyWjANMQswCQYDVQQDDAJDQTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBANDjK/YNIqfOaCKX50q/Tcui++Nhgst/EpP8IMD6sxra0hWnZOHLE+gpQe1kc9Xc5Pj1Tbhn8iCv+h/OT4d4U3gdKX/BIHkLCl5xv6oGDw6C9eNp9khonRhZwTN8N2JH5epHbnRNfdfOBcYo7Tf0BMw9vzp0H6HDvVu8ncwO7ca5q+7h/aiMeg3p3DV2s+nHsyFveTVQKgnB/CEgHhmVLhutBLMm3n1ZsT42Dp0nCwISBzs0SkiIgjZuRw/sgl/auDEwj/TVzutOQbgNTTIAKJC+zaUoXXAMFEepqqp4Bsb+bf4M/4v9r+I4+XlUzDbh2Gf1dd2KOxiqmKCCWrq2wcB+hdl5FLapseO4994BoxRgpkWOAtiqTeFp8BrkoUMGAYaKfe7L0X8sxeqj3z0kW2HG/z4ueaUb/fXorb8haIzZaxUDGSzLFDGkVHA1gD2qNZVKVrT+3VOnYSlgVmy8sJqo88KF6u7ffWja/XkIGoi8HkmU6nOO2mWI3JYRlSJeurEoz0u4b6BPz4FIlKz0uQupXeRwJ11RftQGpgNiIlfcKEqaeAI25VtAAOVA5qgZPRjRQlC/yURvdI6Ypx4BA1AyvSpcaXxASw1gY5b5x56UAzzIj6B3TWcPp9fUACHUc7PfUV3PcYAvRql3yJ2ZuTUclj9R4HrhNy1XrAm63xk5AgMBAAGjbzBtMBoGA1UdEQQTMBGjDzANYQQTAkFVYgUTA0lCTTAuBgNVHR8EJzAlMCOgIaAfhh1odHRwOi8vbG9jYWxob3N0OjQ0NDQvY3JsLmNybDALBgNVHQ8EBAMCAYYwEgYDVR0TAQH/BAgwBgEB/wIBADANBgkqhkiG9w0BAQsFAAOCAgEAnZ5tUdVVN02pZ654wwKeWfmQ1kVqijPKGQwPEOhI8BN4qb75EEMhEJ5qonICGUy5vrvG4on+NDbUw+1bDIsb04u6ry3frTkG6FwC9S9KEtpXQgpLCx/IRoEeq5dK0Z7kR7hzTHemtQx608v1LpVejj55AYuWKS6a/7fosfKJS8MMEZ18dMJXei1KRpjg+w6+yNbAQUZBdscMAqmapvD+4hrSD0xjyjentPWmdk5lm+Xo0U4KT79XHLqtj4Yk++N9UOAbB67IqdpFGVlvWFs1wH2UakYMHWVHuwNYe034wu5kEoSWX4ylzuQpIXsMW54vK+k9m8z8u17cJur9KmW9P7bkrI11bNasiBm4ej2WVu6HRFYpx+rH3FkghFv0QVsmhntXiM5lIWRTNA0MwnlWjwbnMHpTUCOa+816dXR06CUD7s4xAAThxn34KHaBI52CupRSKJalH2vXenge6FTo9K98iPb6aDICLhW090RoF77x/qCApUqUxzvARHCGu/rHv7iLZ4dTUe8r7OBdtQxObZqLOxUc5X1e5gLA+ty5qRe+yO+9xf8Xhm0ov1Tukwp+x2klo7MqzpIIqqoyZiPnK6Ucx8oamQeI+0tmnPNAAP+/7XSNv/+52x/lMWETj1h7DYaIUwG5mDwvcBX9JoIinGn6CX1dvzOU2jcEt0VazPk="
+
 
 local san = nil
 local sanUPN = nil
