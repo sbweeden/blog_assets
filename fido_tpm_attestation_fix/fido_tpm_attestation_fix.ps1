@@ -20,6 +20,14 @@
 # The sed scripts at the end clean up the serial numbers, add quotes, and (for all but the last line) add a trailing comma.
 #
 #
+# If you encounter an error indicating that running scripts is disabled on your system, run PowerShell as Administrator then:
+#
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+#
+# Select Y to allow. Then the script should execute ok. You can use this command to see current execution policy:
+#
+# Get-ExecutionPolicy -List
+#
 
 $revokedSerialNumbers=@(
 "33000003338EBD5049299D04AD000000000333",
