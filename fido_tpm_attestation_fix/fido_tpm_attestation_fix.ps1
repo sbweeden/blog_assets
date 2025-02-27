@@ -259,7 +259,11 @@ Get-ChildItem -Path 'Cert:\LocalMachine\CA' |
 
 # Perform remediation if needed
 if ($foundRevokedCertificate) {
-    Write-Host "One or more revoked certificates detected and removed - performing remediation..."
+    if (-Not $preview) {
+        Write-Host "One or more revoked certificates detected and removed - performing remediation..."
+    } else {
+        Write-Host "Preview Mode: One or more revoked certificates detected - previewing remediation..."
+    }
 
     $regkeys=@(
         "HKLM:SYSTEM\CurrentControlSet\Control\Cryptography\Ngc\AIK",
@@ -270,7 +274,7 @@ if ($foundRevokedCertificate) {
     ForEach ($k in $regkeys) {
         if (Test-Path $k) {
             if ($preview) {
-                Write-Host "PreviewMode: Reg Path to be Deleted `: $k"
+                Write-Host "Preview Mode: Reg Path to be Deleted `: $k"
             } else {
                 Write-Host "Deleting `: $k"
                 Remove-Item -Path $k -Recurse -Force
@@ -314,9 +318,14 @@ if ($foundRevokedCertificate) {
     }
 
     if (-Not $taskError) {
-        Write-Host "AIK certificate enrollment complete. Please try registering Windows Hello again."
+        if (-Not $preview) {
+            Write-Host "AIK certificate enrollment complete. Please try registering Windows Hello again."
+        }
     }
-
 } else {
     Write-Host "No revoked AIK certificates detected, doing nothing"
+}
+
+if ($preview) {
+    Write-Host "Preview Mode: completed. Check what would have been done from messages above."
 }
