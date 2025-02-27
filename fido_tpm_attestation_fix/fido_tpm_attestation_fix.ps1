@@ -28,6 +28,27 @@
 #
 # Get-ExecutionPolicy -List
 #
+param(
+    [switch]$help,
+    [switch]$preview,
+    [switch]$run
+)
+
+if (-Not $run -and -Not $preview) {
+    $help = $true
+} 
+
+if ($help) {
+    Write-Host "This script will check for TPM intermediate CA revocation and regenerate a new TPM CA cert to fix Windows Hello passkey registration issue."
+    Write-Host "Help`:  fido_tpm_attestation_fix.ps1  | fido_tpm_attestation_fix.ps1 -help"
+    Write-Host "Preview Mode `: fido_tpm_attestation_fix.ps1 -preview"
+    Write-Host "Run Script`: fido_tpm_attestation_fix.ps1 -run"
+    exit 1
+}
+
+if ($preview) {
+    Write-Host "Run in preview mode ..."
+} 
 
 $revokedSerialNumbers=@(
 "33000003338EBD5049299D04AD000000000333",
@@ -212,17 +233,27 @@ Get-ChildItem -Path 'Cert:\LocalMachine\CA' |
     ForEach-Object {
         $cert = $_
         $sn = $cert.SerialNumber
+        $sub = $cert.Subject
+        Write-Host "Checking certificate revocation for this  `: $sub"
         if ($revokedSerialNumbers -contains $sn) {
             $foundRevokedCertificate = $true
-            $sub = $cert.Subject
-            Write-Host "Removing revoked certificate `: $sub"
+            #$sub = $cert.Subject
+            if ($preview) {
+                Write-Host "Preview Mode:  Revoked Cert to be deleted is $sub"
+            } else { 
+                Write-Host "Removing revoked certificate `: $sub"
+            }
+
             ForEach ($p in $props) {
                 $val = $cert.$p
                 Write-Host "    $p`: $val"
             }    
 
             # Delete the revoked certificate
-            $cert | Remove-Item
+            if (-Not $preview) {
+                $cert | Remove-Item
+
+            }
         }        
     }
 
@@ -238,8 +269,13 @@ if ($foundRevokedCertificate) {
 
     ForEach ($k in $regkeys) {
         if (Test-Path $k) {
-            Write-Host "Deleting `: $k"
-            Remove-Item -Path $k -Recurse -Force
+            if ($preview) {
+                Write-Host "PreviewMode: Reg Path to be Deleted `: $k"
+            } else {
+                Write-Host "Deleting `: $k"
+                Remove-Item -Path $k -Recurse -Force
+            }
+
         } else {
             Write-Host "Skipping registry key that did not exist`: $k"
         }
@@ -252,21 +288,27 @@ if ($foundRevokedCertificate) {
     $taskError = $false
     ForEach ($taskName in $taskNames) {
         if (-Not $taskError) {
-            Write-Host "Starting $taskName"
-            Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName
+            if ($preview) {
+                Write-Host "Preview Mode: Will be Starting $taskName"
 
-            $timeout = 60
-            $timer = [Diagnostics.Stopwatch]::StartNew()
-            while (((Get-ScheduledTask -TaskPath $taskPath -TaskName $taskName).State -ne 'Ready') -and ($timer.Elapsed.TotalSeconds -lt $timeout)) {
-                Write-Host "Waiting for task $taskName to finish..."
-                Start-Sleep -Seconds 2
-            }
-            $timer.Stop()
-            if ($timer.Elapsed.TotalSeconds -ge $timeout) {
-                $taskError = $true
-                Write-Host "Task $taskName timed out - aborting."
             } else {
-                Write-Host "Task $taskName completed in $($timer.Elapsed.TotalSeconds) seconds"
+                Write-Host "Starting $taskName"
+                Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName
+
+                $timeout = 60
+                $timer = [Diagnostics.Stopwatch]::StartNew()
+                while (((Get-ScheduledTask -TaskPath $taskPath -TaskName $taskName).State -ne 'Ready') -and ($timer.Elapsed.TotalSeconds -lt $timeout)) {
+                    Write-Host "Waiting for task $taskName to finish..."
+                    Start-Sleep -Seconds 2
+                }
+                $timer.Stop()
+                if ($timer.Elapsed.TotalSeconds -ge $timeout) {
+                    $taskError = $true
+                    Write-Host "Task $taskName timed out - aborting."
+                } else {
+                    Write-Host "Task $taskName completed in $($timer.Elapsed.TotalSeconds) seconds"
+                }
+
             }
         }
     }
