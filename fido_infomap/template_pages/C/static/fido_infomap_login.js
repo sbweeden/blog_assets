@@ -261,7 +261,7 @@
             // render feature table
             renderFeatureTable();
 
-            // set up a handler for the register button
+            // set up a handler for the passkey login button
             $('#passkeyLoginButton').click(() => { modalLogin(); });
 
             // if autofill is available, kick of the condiitonal mediation flow

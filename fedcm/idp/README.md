@@ -14,9 +14,9 @@ Read more about the current status of the [Federated Credential Management API](
 
 ## Hosting the well-known file
 
-The FedCM protocol currently requires hosting of a discovery document at your eTLD+1 domain. For example if your IDP hostname is www.myidp.ibm.com, then a document must be hosted at https://ibm.com/.well-known/web-identity. This is really only possible if you control the domain. I do not for ibm.com, so I tested this setup on a personal domain where I could host a page at my eTLD+1 location. You can read more about this requirement in the [Using the FedCM API](https://developers.google.com/privacy-sandbox/3pcd/fedcm-developer-guide#use-api) documentation.
+The FedCM protocol currently requires hosting of a discovery document at your eTLD+1 domain. For example if your IDP hostname is www.myidp.ibm.com, then a document must be hosted at `https://ibm.com/.well-known/web-identity`. This is really only possible if you control the domain. I do not for ibm.com, so I tested this setup on a personal domain where I could host a page at my eTLD+1 location. You can read more about this requirement in the [Using the FedCM API](https://developers.google.com/privacy-sandbox/3pcd/fedcm-developer-guide#use-api) documentation.
 
-The Lua HTTP transformation asset included in this repo caters for returning the .well-known/web-identity URL, although you can obivously host it outside of the ISVA server as well if you want. Either way, this is a requirement for using FedCM, and one of the pre-requisites you will need to satisfy before you can setup an IDP. Chrome does have some special flags for testing purposes, and you can read about those at the link above as well.
+The Lua HTTP transformation asset included in this repo caters for returning the `.well-known/web-identity` URL, although you can obivously host it outside of the ISVA server as well if you want. Either way, this is a requirement for using FedCM, and one of the pre-requisites you will need to satisfy before you can setup an IDP. Chrome does have some special flags for testing purposes, and you can read about those at the link above as well.
 
 ## ISVA Pre-requisites
 
@@ -64,7 +64,7 @@ In the WRP configuration file this is done as follows:
 verify-access-persistent-session = [-unsupported-same-site]SameSite=None
 ```
 
-If you PD-S-SESSION-ID cookie was long-lived, you could also use that instead of the remember-me cookie, but it is still a requirement that `SameSite=None` is set, because if it isn't then the browser won't sent it in FedCM requests to the IDP and the request will not represent the user that you wish to sign in as.
+If your `PD-S-SESSION-ID` cookie was long-lived, you could also use that instead of the remember-me cookie, but it is still a requirement that `SameSite=None` is set, because if it isn't then the browser won't sent it in FedCM requests to the IDP and the request will not represent the user that you wish to sign in as.
 
 
 ## Configuring ISVA for FedCM Identity Provider
