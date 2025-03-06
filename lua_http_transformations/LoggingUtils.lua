@@ -34,4 +34,27 @@ function LoggingUtils.toHexString(s)
    return res
 end
 
+function LoggingUtils.dumpRequest()
+	local result = ''
+	result = result .. 'RequestLine: ' .. HTTPRequest.getMethod() .. ' ' .. HTTPRequest.getURL() .. '\n'
+	result = result .. 'Start Headers\n'
+	for k,v in pairs(HTTPRequest.getHeaderNames()) do
+		result = result .. v .. '=' .. HTTPRequest.getHeader(v) .. '\n'
+	end
+	result = result .. 'End Headers\n'
+	result = result .. 'Start Cookies\n'
+	for k,v in pairs(HTTPRequest.getCookieNames()) do
+		result = result .. v .. '=' .. HTTPRequest.getCookie(v) .. '\n'
+	end
+	result = result .. 'End Cookies\n'
+	result = result .. 'Start body\n'
+	local b = HTTPRequest.getBody()
+	if (b ~= nil) then
+		result = result .. b .. '\n'
+	end
+	result = result .. 'End body\n'
+	
+	LoggingUtils.debugLog(result)
+end
+
 return LoggingUtils
