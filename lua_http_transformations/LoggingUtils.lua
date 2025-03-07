@@ -39,7 +39,7 @@ function LoggingUtils.dumpRequest()
 	result = result .. 'RequestLine: ' .. HTTPRequest.getMethod() .. ' ' .. HTTPRequest.getURL() .. '\n'
 	result = result .. 'Start Headers\n'
 	for k,v in pairs(HTTPRequest.getHeaderNames()) do
-		result = result .. v .. '=' .. HTTPRequest.getHeader(v) .. '\n'
+		result = result .. v .. ': ' .. HTTPRequest.getHeader(v) .. '\n'
 	end
 	result = result .. 'End Headers\n'
 	result = result .. 'Start Cookies\n'
