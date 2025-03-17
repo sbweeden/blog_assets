@@ -175,7 +175,3 @@ After accessing the end-user portal page for your tenant, and logging in with a 
 
 ![runtime1](images/runtime1.png?raw=true)
 ![runtime2](images/runtime2.png?raw=true)
-
-
-# TODO
-Re-evaluate better ways of providing an exit function out of the inline MFA policy.
