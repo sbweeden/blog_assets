@@ -68,7 +68,7 @@
                         // return true
                         else {
                             PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-                            .then((isUVPAA) => { console.log("isuvpaa returned"); resolve(isUVPAA); })
+                            .then((isUVPAA) => { console.log("isUserVerifyingPlatformAuthenticatorAvailable returned: " + isUVPAA); resolve(isUVPAA); })
                             .catch((e) => { resolve(false); })
                         }
                     } catch (err) {
@@ -92,7 +92,7 @@
                         .then((x) => {
                             doPasskeysWorkHere = x;
                         }).catch((e) => {
-                            console.log("Error calling offerPasskeyLogin: " + e); 
+                            console.log("Error calling clientSupportsPasskeys: " + e); 
                         })
                     );
 

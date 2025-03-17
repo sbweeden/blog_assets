@@ -5,10 +5,10 @@ This IBM Security Verify Workflow is designed to solicit registration of a passk
 Ostensibly it checks whether the user has logged in already with a passkey, and if not, asks them if they would like to enroll. Should they opt in, the inline MFA registration flow is used to guide the user through passkey registration.
 
 There's a little more to it than that - here are a list of key features:
-  - The user can opt out either one-time, or permanently, and localStorage is used to remember permanent decisions for future executions of the workflow.
-  - The workflow has logic to only be run once-per-session (cookie-based).
-  - The workflow currently solicits registration of *any* passkey - either the platform authenticator, or a cross-platform authenticator.
-  - At present, the workflow will not solicit passkey registration if the user performed login with any FIDO authenticator as their first factor login in the session. In future this will be fine-tuned to only skip solicited registration if the user logged in with a _platform_ passkey in the current session. That would allow solicited passkey registration of the platform authenticator after either hardware security key or cross-device (hybrid) authentication flows. 
+  - The user can opt out either one-time, or permanently, and localStorage is used to remember permanent decisions for future executions of the workflow. If you are trying to nudge users towards passkeys, you can disable the opt-out-permanently capability easily by simply updating the page template.
+  - The workflow has logic to only be run once-per-session.
+  - The workflow prefers to solicit registration of platform passkeys. It can be modified to solicit registration of *any* passkey (including hardware security keys), although that would only be appropriate if you are sure that all your users have been issued with appropriate authenticators.
+  - At present, the workflow will solicit passkey registration if the user performed login with something that wasn't a FIDO platform authenticator. This includes other FIDO authenticators such as hardware security keys. That allows solicited passkey registration of the platform authenticator after either hardware security key or cross-device (hybrid) authentication flows, as well as with any non-FIDO based login. If you are using hardware security keys only, then you would want to change this, and that could be done in the `PostDiscovery` function task of the workflow.
 
 Logically, the workflow behaves as shown in the following flowchart:
 
@@ -113,16 +113,11 @@ Complete the following subsections to create an access policy that will trigger 
 
 ### Create a custom directory attribute
 
-State management for determining if the workflow has been run in this session is managed using a cookie. A custom attribute is used to inspect the cookie in an access policy. Create an `Advanced rule` directory attribute called `passkey_workflow_processed` with the following CEL code:
+State management for determining if the workflow has been run in this session is managed using a session API. The session attribute is set upon completion of the workflow (see the `MarkWorkflowComplete` task). A custom attribute is used to inspect this sesion state in an access policy. Create an `Advanced rule` directory attribute called `passkey_workflow_processed` with the following CEL code:
 ```
 statements:
-    - context: retval := "false"
-    - if:
-        match: requestContext.getValues('cookie').exists(x, x.contains("passkeyworkflowcomplete=true"))
-        block:
-            - context: retval = "true"
     - return: >
-        context.retval
+        session.Exists("passkeyreg_done").value
 ```
 
 ![create directory attribute 1](images/create_directory_attribute_1.png?raw=true)
@@ -183,6 +178,4 @@ After accessing the end-user portal page for your tenant, and logging in with a 
 
 
 # TODO
-
-Replace cookie-based state sharing mechanism with server-side CEL API for key/value storage when available.
 Re-evaluate better ways of providing an exit function out of the inline MFA policy.

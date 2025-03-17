@@ -3,11 +3,9 @@
     <head>
         <!-- 
             This page is used to redirect to the location that initiated the workflow.
-            It also sets a cookie to indicate the workflow has been completed this session.
-            And it deletes any existing workflowcallbackurl cookie since we are ending the workflow.
+            It also deletes any existing workflowcallbackurl cookie since we are ending the workflow.
         -->
         <script>
-            document.cookie="passkeyworkflowcomplete=true;path=/";
             document.cookie = "workflowcallbackurl=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.replace("@context.Target@");
         </script>
