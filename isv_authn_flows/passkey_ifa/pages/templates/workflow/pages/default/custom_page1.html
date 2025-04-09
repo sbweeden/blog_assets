@@ -403,7 +403,7 @@
         }
 
         function redirectToTarget() {
-            window.location.replace("@context.post_url@");
+            window.location.replace(htmlDecode("@context.post_url@"));
         }
 
         function refreshAutofill() {
