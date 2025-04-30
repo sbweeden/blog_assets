@@ -52,6 +52,33 @@ In this step, create a new branding theme using the `passkeyifa.zip` page templa
 
 ![create branding theme](images/create_branding_theme.png?raw=true)
 
+### Install the passkeyifa.js file
+
+First using an API Client which has at least the `manageTemplates` entitlement.
+Obtain an access token using this API client, for example:
+```
+export CLIENT_ID="xxx"
+export CLIENT_SECRET="yyyy"
+
+
+curl -k -v https://tenant_url/oauth2/token -H "Accept: application/json" -d "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET"
+
+export AT="your_access_token"
+```
+
+Use the access token to upload the custom JS file:
+```
+$ cd ~/git/blog_assets/isv_authn_flows/passkey_ifa/pages/customjs/js
+$ curl --request POST \
+     --url https://tenant_url/v1.0/branding/registration/js \
+     --header 'accept: application/json' \
+     --header 'content-type: multipart/form-data' \
+     --header "Authorization: Bearer $AT" \
+     -F "file=@passkeyifa.js"
+```
+
+This is uploaded into the default theme, and there should be no need to override it in the passkeyifa theme.
+
 ## Import and configure workflow
 
 - Import the workflow file `passkeyifa.bpmn` in the Flow Designer, following the instructions below:

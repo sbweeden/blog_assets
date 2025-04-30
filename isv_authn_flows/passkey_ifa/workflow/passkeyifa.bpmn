@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn2:definitions xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" exporter="Camunda Modeler" exporterVersion="5.0.0" id="_FXeIoKhnEeOC4LOKh_69JQ" targetNamespace="isv_customtasks" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:isv="http://ibm.com/bpmn/isv" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd">
-	<bpmn2:process camunda:historyTimeToLive="1" id="passkeyifa" isExecutable="true" isv:propertiesSchemaVersion="1.0" name="PasskeyIFA">
+	<bpmn2:process camunda:historyTimeToLive="1" id="passkeyifa" isExecutable="true" isv:propertiesSchemaVersion="4.0" name="PasskeyIFA">
 		<bpmn2:startEvent camunda:displayName="Start event" id="Event_0onayf9">
 			<bpmn2:outgoing>Flow_12xl4zo</bpmn2:outgoing>
 		</bpmn2:startEvent>
@@ -36,8 +36,8 @@
 		<bpmn2:serviceTask camunda:class="com.ibm.security.access.workflow.camunda.customTaskListener.RenderHTMLTask" id="isv_page_1699932918602_customId" name="PromptForUsernameOrPasskey">
 			<bpmn2:extensionElements>
 				<isv:inputOutput>
-					<isv:inputParameter id="themeId" name="themeId">7a9a7b9a-e864-495d-a122-494d72affae5</isv:inputParameter>
-					<isv:inputParameter id="templatename" name="templateName">custom_page2</isv:inputParameter>
+					<isv:inputParameter id="themeId" name="themeId">e114cfca-10ea-43a4-ac44-86a53a78d1eb</isv:inputParameter>
+					<isv:inputParameter id="templatename" name="templateName">custom_page1</isv:inputParameter>
 					<isv:inputParameter id="callback" name="callback"/>
 					<isv:inputParameter id="signal" name="signal">onUsernameSubmit</isv:inputParameter>
 				</isv:inputOutput>
