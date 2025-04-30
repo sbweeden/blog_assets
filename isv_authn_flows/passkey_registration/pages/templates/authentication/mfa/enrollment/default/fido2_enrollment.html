@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
-   <head>
-      <!-- 
+  <head>
+    <!-- 
         This page has been heavily customised for solicited passkey enrolment. 
         - Attestation options are refined for the platform authenticator. 
         - The excludeCredentials list, if any, is removed, allowing passkey overwrite on the client rather than a potential error
@@ -13,135 +13,109 @@
           of a passkey to be computed from introspecting the WebAuthn registration response, extracting the AAGUID and performing
           a lookup of well-known passkey providers.
       -->
-      <title>$FIDO2_ENROLLMENT_TITLE$</title>
-      <base href="/" />
-      <meta http-equiv='content-type' content='text/html; charset=UTF-8' />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link rel="shortcut icon" type="image/x-icon" href="usc/favicon.ico" />
-      <link rel="stylesheet" href="usc/css/stateless.css" />
-      <link rel="stylesheet" href="/template/v1.0/static/theme.css?themeId=@THEME_ID@" />
-      <script src="/authsvc/mtfim/sps/static/v1/jsrsasign-min.js"></script>
-      <script src="/template/v1.0/static/js/cbor.js"></script>
-      <script src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@" id="fido2-enrollment-script">
-        {
-          "attestationOptions": @ATTESTATION_OPTIONS@,
-          "errorMessage": "@ERROR_MESSAGE@",
-          "showUseAnotherMethod": @SHOW_USE_ANOTHER_METHOD@,
-          "nicknameError": "$FIDO2_ENROLLMENT_NAME_ERROR$",
-          "isFallback": @FALLBACK@
-        }
-      </script>
-	  <style >
-		li.instructions {
-			margin-bottom: var(--cds-spacing-03,.5rem);
-		}
-		ol {
-			margin-left: 5%;
-		}
-    #errorMsg {
-      color: red;
-      font-weight: 700;
-      font-size: 1rem;
-      margin-top: 1rem;
-    }
-    #errorMsgDetails {
-      color: red;
-      font-weight: normal;
-      font-size: .875rem;
-      padding-top: .5rem;
-    }
-
-	  </style>
-   </head>
-   <body>
-      <div class="cs-content">
-         @PAGE_HEADER@
-         <div style="border-bottom: 1px solid #dde1e6; margin-bottom: 20px; padding-bottom: 1rem">
-            <h1 style="font-size: 170%; text-align: left; padding-bottom: .5rem">
-               <!-- $FIDO2_ENROLLMENT_HEADING$ --><div id="enrollmentHeadingDiv"></div>
-            </h1>
-            <!-- <h2 id="prepare" style="display: block; text-align: left;">$FIDO2_ENROLLMENT_PREPARE_DEVICE$</h2> -->
-            <h2 id="name-input" style="display: none; text-align: left;">$FIDO2_ENROLLMENT_NAME_DEVICE$</h2>
-         </div>
-        <div id="instructions">
-         <div class="content" id="list-instructions">
-            <div id="instructionsTextDiv" class="instructions"><!-- $FIDO2_ENROLLMENT_PREPARE_DEVICE_INSTRUCTION$ --></div>
-            <!--
-            <ol class="bx--list--ordered" style="list-style-position: inside; margin-top: var(--cds-spacing-05,1rem);">
-			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_PLUG_DEVICE_INSTRUCTION$</li>
-			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_ENTER_PIN_INSTRUCTION$</li>
-			  <li class="instructions bx--list__item">$FIDO2_ENROLLMENT_GIVE_PERMISSION_INSTRUCTION$</li>
-		   </ol>
-         -->
-         <!--
-		   <div style="margin-left: 20px; position: absolute; left: 100px">
-				<button tabindex="0" class="bx--btn--ghost bx--btn bx--btn--primary" type="button" onclick="fallback();">
-					$FIDO2_HAVING_TROUBLE_BUTTON$
-				</button>
-		   </div>
-         -->
-       </div>
-		   <br><br>
-		   <div style="position: relative">
-			  <div class="cs-button-strip cs-row-table spaced">
-				 <button class="cs-button bx--btn bx--btn--primary" id="register-button">Register a passkey</button>
-			  </div>
-        <!-- This is new for allowing cancel -->
-         <div id="abortlinkdiv" style="display:none;">
-          <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
-            <a id="abortPasskeyRegistrationHref">Abort passkey registration</a>
-          </div>
+    <title>$FIDO2_ENROLLMENT_TITLE$</title>
+    <base href="/" />
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" type="image/x-icon" href="usc/favicon.ico" />
+    <link rel="stylesheet" href="usc/css/stateless.css" />
+    <link
+      rel="stylesheet"
+      href="/template/v1.0/static/theme.css?themeId=@THEME_ID@"
+    />
+    <script src="/authsvc/mtfim/sps/static/v1/jsrsasign-min.js"></script>
+    <script src="/template/v1.0/static/js/cbor.js"></script>
+    <script
+      src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@"
+      id="fido2-enrollment-script"
+    >
+      {
+        "attestationOptions": @ATTESTATION_OPTIONS@,
+        "errorMessage": "@ERROR_MESSAGE@",
+        "showUseAnotherMethod": @SHOW_USE_ANOTHER_METHOD@,
+        "nicknameError": "$FIDO2_ENROLLMENT_NAME_ERROR$",
+        "isFallback": @FALLBACK@
+      }
+    </script>
+  </head>
+  <body>
+    <div class="cs-content fido2-enrollment">
+      @PAGE_HEADER@
+      <div class="enrollment-heading-div">
+        <h1>
+          <!-- $FIDO2_ENROLLMENT_HEADING$ -->
+          <div id="enrollmentHeadingDiv"></div>
+        </h1>
+        <h2 id="name-input">$FIDO2_ENROLLMENT_NAME_DEVICE$</h2>
       </div>
-             <!--
+      <div id="instructions">
+        <div class="content" id="list-instructions">
+          <div id="instructionsTextDiv" class="instructions"></div>
+        </div>
+        <div class="platform-actions">
+          <!-- This is new for allowing cancel -->
+          <div id="abortlinkdiv">
+            <div class="use-another-method" id="another-method1">
+              <a id="abortPasskeyRegistrationHref"
+                >Abort passkey registration</a
+              >
+            </div>
+          </div>
+          <button
+            class="cs-button bx--btn bx--btn--primary"
+            id="register-button"
+          >
+            Register a passkey
+          </button>
+          <!--
 			  <div class="use-another-method" id="another-method1" style="position: absolute; top: 25px">
 				 <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a>
 			  </div>
          -->
-			  <div style="clear: both"></div>
-		   </div>
-       <div id="customErrorDiv" style="display:none">
-        
-        <div id="errorMsg"></div>
-        <div id="errorMsgDetails"></div>    
-
-       </div>
         </div>
-
-        <div class="content" id="enroll" style="display: none;">
-            <div class="instructions" style="margin-bottom: 1rem">$FIDO2_ENROLLMENT_NAME_INPUT$</div>
-            <form id="register" method="POST" action="@ACTION@">
-               <input
-                  placeholder="$FIDO2_ENROLLMENT_NICKNAME_PLACEHOLDER$"
-                  type="text"
-                  name="nickname"
-                  id="nickname"
-                  class="bx--text-input"
-                  autofocus
-                  />
-			   <input type="hidden" name="operation" value="register">
-               <input type="hidden" name="attestationResponse" value="">
-			   <div id="cs-error-message-container" class="top-spaced error-message">
-				 <span id="cs-error-message">@ERROR_MESSAGE@</span>
-			   </div>
-               <div style="position: relative">
-                  <div class="cs-button-strip cs-row-table spaced">
-                     <!-- <button class="cs-button bx--btn bx--btn--primary" id="verify-button" onclick="registerFidoDevice(event)">$FIDO2_ENROLLMENT_VERIFY_DEVICE_BUTTON$</button> -->
-                     <button class="cs-button bx--btn bx--btn--primary" id="verify-button">Save Passkey</button>
-                  </div>
-                  <div class="use-another-method" id="another-method2" style="position: absolute; top: 25px">
-                     <!-- <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a> -->
-                  </div>
-                  <div style="clear: both"></div>
-               </div>
-            </form>
-            <form id="use-another-method-form" action="@ACTION@" method="POST">
-               <input name="operation" type="hidden" value="restart">
-            </form>
-			<form id="fallback-form" action="@ACTION@" method="POST">
-               <input name="operation" type="hidden" value="fallback">
-            </form>
-         </div>
-         @PAGE_FOOTER@
+        <div id="customErrorDiv">
+          <div id="errorMsg"></div>
+          <div id="errorMsgDetails"></div>
+        </div>
       </div>
-   </body>
+
+      <div class="content" id="enroll">
+        <div class="instructions">$FIDO2_ENROLLMENT_NAME_INPUT$</div>
+        <form id="register" method="POST" action="@ACTION@">
+          <input
+            placeholder="$FIDO2_ENROLLMENT_NICKNAME_PLACEHOLDER$"
+            type="text"
+            name="nickname"
+            id="nickname"
+            class="bx--text-input"
+            autofocus
+          />
+          <input type="hidden" name="operation" value="register" />
+          <input type="hidden" name="attestationResponse" value="" />
+          <div id="cs-error-message-container" class="top-spaced error-message">
+            <span id="cs-error-message">@ERROR_MESSAGE@</span>
+          </div>
+          <div class="platform-actions">
+            <button
+              class="cs-button bx--btn bx--btn--primary"
+              id="verify-button"
+            >
+              Save Passkey
+            </button>
+            <!-- <button class="cs-button bx--btn bx--btn--primary" id="verify-button" onclick="registerFidoDevice(event)">$FIDO2_ENROLLMENT_VERIFY_DEVICE_BUTTON$</button> -->
+            <div class="use-another-method" id="another-method2">
+              <!-- <a onclick="goBack()" href="javascript:void(0)">$FIDO2_ENROLLMENT_ANOTHER_METHOD$</a> -->
+            </div>
+          </div>
+        </form>
+        <form id="use-another-method-form" action="@ACTION@" method="POST">
+          <input name="operation" type="hidden" value="restart" />
+        </form>
+        <form id="fallback-form" action="@ACTION@" method="POST">
+          <input name="operation" type="hidden" value="fallback" />
+        </form>
+      </div>
+      @PAGE_FOOTER@
+    </div>
+  </body>
 </html>

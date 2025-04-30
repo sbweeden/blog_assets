@@ -26,6 +26,15 @@ function htmlDecode(s) {
 	}
 }
 
+// Utility function to remove css class if element contains it
+function elementsToHide(elementsArray) {
+    elementsArray.forEach((el) => {
+      if(el.classList.contains('block')) {
+        el.classList.remove('block');
+      }
+    })
+  }
+
 function showDiv(id) {
     var mydiv = document.getElementById(id);
     if (mydiv != null) {
@@ -289,7 +298,7 @@ function onLoadCustomPage4(scriptElement) {
 
 function esShowAnotherMethodLink (showAnotherMethod) {
     if (typeof showAnotherMethod !== 'undefined' && showAnotherMethod === "false"){
-      document.getElementById("use-another-method-link").style.display="none";
+      document.getElementById("use-another-method-link").classList.add('hidden');
     }
 }
 
@@ -554,8 +563,9 @@ function determineAuthenticatorAttachment() {
 // similar to the testFidoDevice function from fido2_register.js, but designed to be re-entrant on a failure
 // by detecting if data type conversions have already been performed and hiding the error at the start
 function solicitedPasskeyRegisterDevice() {
-    document.getElementById('customErrorDiv').style = "display:none;";
-    document.getElementById('abortlinkdiv').style = "display:none;";
+    const elOne = document.getElementById('customErrorDiv');
+    const elTwo = document.getElementById('abortlinkdiv');
+    elementsToHide([elOne, elTwo]);
 
     document.getElementById("register-button").disabled = true; 
     var response = attestationOptions;
@@ -619,9 +629,9 @@ function mySuccess(credInfo) {
     // Hide the prepare instructions
     var prepare = document.getElementById("prepare");
     if (prepare != null || prepare != undefined) {
-       prepare.style.display = "none";	
+        prepare.classList.add('hidden');	
     }
-    document.getElementById("instructions").style.display = "none";
+    document.getElementById("instructions").classList.add('hidden');
 
     // pre-populate the nickname value
     document.getElementById('nickname').value = generatePasskeyNickname();
@@ -629,11 +639,11 @@ function mySuccess(credInfo) {
     // Show the nickname input
     var nameInput = document.getElementById("name-input");
     if (nameInput != null || nameInput != undefined) {
-       nameInput.style.display = "block";
+        nameInput.classList.add('block');
     }
     
     // show it
-    document.getElementById("enroll").style.display = "block";
+    document.getElementById("enroll").classList.add('block');
 }
 
 //
@@ -651,8 +661,8 @@ function myFailedStepup(er) {
     document.getElementById("register-button").disabled = false;
 
     // now show the error and abort link
-    document.getElementById('customErrorDiv').style = "display:block;";
-    document.getElementById('abortlinkdiv').style = "display:block;";
+    document.getElementById('customErrorDiv').classList.add('block');
+    document.getElementById('abortlinkdiv').classList.add('block');
 }
 
 //
@@ -759,7 +769,7 @@ function onLoadPasswordlessFido2(scriptElement) {
     // performing the verification of the credential during the registration ceremony
     // since the "only thing" you can be doing is verifying the just-registered credential.
     if (isEnrollment != "true" && showUseAnotherMethod == "true") {
-        document.getElementById('abortSection').style.display = "block";
+        document.getElementById('abortSection').classList.add('block');
     }
 
     //
@@ -1023,7 +1033,7 @@ function onLoadCombinedLoginSelection(scriptElement) {
     const urlParams = new URLSearchParams(window.location.search);
     const workflowLaunched = urlParams.get("workflowLaunched");
     if (workflowLaunched == "true") {
-        document.getElementById("bodyWrapperDiv").style.display = "block";
+        document.getElementById("bodyWrapperDiv").classList.add('block');
     } else {
         window.location.replace("/flows/?reference=" + workflowReference + "&themeId=" + passkeyregThemeId)
     }

@@ -19,51 +19,6 @@
 
             }
     </script>
-    <style>
-        html,
-        body {
-            height: 100%;
-            background-color: #f2f4f8;
-        }
-
-        .content {
-            height: inherit;
-        }
-
-        .sw-sign-in {
-            width: 50%;
-            margin-left: auto;
-            margin-right: 0;
-            height: 100%;
-            background-color: #fff;
-            padding: 5rem;
-            padding-top: 100px;
-        }
-
-        .login-footer {
-            background-color: #fff;
-            border-top: 2px solid #f2f4f8;
-            bottom: 0;
-            color: #9fa5ad;
-            font-size: 12px;
-            left: 50%;
-            letter-spacing: .1px;
-            line-height: 18px;
-            padding: 20px 50px;
-            position: fixed;
-            right: 0;
-            width: auto;
-            z-index: 1000;
-        }
-
-        .sw-username-sign-in {
-            display: flex;
-            gap: .5rem;
-            margin-bottom: 2rem;
-            margin-top: 2rem;
-            align-items: end;
-        }
-    </style>
     <title>Username or Passkey</title>
 </head>
 
@@ -75,9 +30,8 @@
             <p>Enter your username or select a passkey</p>
 
             <form id="usernameForm" method="POST" action="@WORKFLOW_CALLBACK_URL@">
-
                 <div class="sw-username-sign-in">
-                    <div style="width: 100%;">
+                    <div>
                         <label class="bx--label" for="username">Username</label>
                         <input class="bx--text-input" type="text" id="username" name="username"
                             autocomplete="username webauthn" />
@@ -85,12 +39,12 @@
                     <button class="bx--btn bx--btn--secondary bx--btn--md">Next</button>
                 </div>
                 <p>OR</p>
-                <input style="margin-top: .5rem;" class="bx--btn bx--btn--primary" type="button" value="Sign in with a passkey" onclick="modalPasskeyLogin()"/>
+                <input class="bx--btn bx--btn--primary" type="button" value="Sign in with a passkey" onclick="modalPasskeyLogin()"/>
             </form>
 
         </div>
         <br>
-        <div id="errDiv" style="color:red; display:none;">
+        <div id="errDiv">
         </div>
         <br>
         <!---->
