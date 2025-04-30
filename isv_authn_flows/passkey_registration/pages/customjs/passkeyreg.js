@@ -324,7 +324,7 @@ function onLoadEnrollmentSuccess(scriptElement) {
 
 /***************************
  * Used by fido2_enrollment.html
- * Requires KJUR
+ * Requires jsrsasign and CBOR 
 ***************************/
 
 var tagJsonFido2Enrollment;

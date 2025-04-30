@@ -85,7 +85,7 @@ export CLIENT_ID="xxx"
 export CLIENT_SECRET="yyyy"
 
 
-curl -k -v https:/tenant_url/oauth2/token -H "Accept: application/json" -d "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET"
+curl -k -v https://tenant_url/oauth2/token -H "Accept: application/json" -d "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET"
 
 export AT="your_access_token"
 ```
