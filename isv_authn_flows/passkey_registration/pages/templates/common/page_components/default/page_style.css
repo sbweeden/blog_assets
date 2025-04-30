@@ -1,0 +1,75 @@
+/* css for customization
+   Add styling here to override classes from <tenant>/usc/css/stateless.css 
+*/
+<style>
+html,
+body {
+    height: 100%;
+    background-color: #f2f4f8;
+}
+
+.content {
+    height: inherit;
+}
+
+.sw-sign-in {
+    width: 50%;
+    margin-left: auto;
+    margin-right: 0;
+    height: 100%;
+    background-color: #fff;
+    padding: 5rem;
+    padding-top: 100px;
+}
+
+#msgdiv {
+    margin-bottom: 2rem;
+}
+
+#msgdiv h1,
+#passkeyForm p {
+    margin-bottom: .5rem;
+}
+
+#passkeyForm {
+    max-width: 600px;
+    width: 100%;
+}
+
+.button-wrapper {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.login-footer {
+    background-color: #fff;
+    border-top: 2px solid #f2f4f8;
+    bottom: 0;
+    color: #9fa5ad;
+    font-size: 12px;
+    left: 50%;
+    letter-spacing: .1px;
+    line-height: 18px;
+    padding: 20px 50px;
+    position: fixed;
+    right: 0;
+    width: auto;
+    z-index: 1000;
+}
+
+.hidden {
+   display: none;
+}
+
+.inline {
+   display :inline-block;
+}
+
+.notefont {
+   font-size: .875rem; 
+   font-weight: bold;
+}
+
+</style>

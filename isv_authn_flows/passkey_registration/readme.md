@@ -74,6 +74,51 @@ After the theme is created, it will be assigned an id. We will need this id when
 
 ![capture theme id](images/capture_themeid2.png?raw=true)
 
+### Update the passkeyreg.js file with the passkeyreg themeId and install it
+
+Edit the file page template file `pages/customjs/passkeyreg.js` and look for a variable called `passkeyregThemeId` near the top of the file. Update this to contain the themeId determined in the previous section.
+
+Add custom JS files - first using an API Client which has at least the `manageTemplates` entitlement.
+Obtain an access token using this API client, for example:
+```
+export CLIENT_ID="xxx"
+export CLIENT_SECRET="yyyy"
+
+
+curl -k -v https:/tenant_url/oauth2/token -H "Accept: application/json" -d "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET"
+
+export AT="your_access_token"
+```
+
+Use the access token to upload the custom JS files:
+```
+$ cd ~/git/blog_assets/isv_authn_flows/passkey_registration/pages/customjs/js
+$ curl --request POST \
+     --url https://tenant_url/v1.0/branding/registration/js \
+     --header 'accept: application/json' \
+     --header 'content-type: multipart/form-data' \
+     --header "Authorization: Bearer $AT" \
+     -F "file=@passkeyreg.js"
+
+$ curl --request POST \
+     --url https://tenant_url/v1.0/branding/registration/js \
+     --header 'accept: application/json' \
+     --header 'content-type: multipart/form-data' \
+     --header "Authorization: Bearer $AT" \
+     -F "file=@platform.min.js"
+
+$ curl --request POST \
+     --url https://tenant_url/v1.0/branding/registration/js \
+     --header 'accept: application/json' \
+     --header 'content-type: multipart/form-data' \
+     --header "Authorization: Bearer $AT" \
+     -F "file=@cbor.js"
+```
+
+This is uploaded into the default theme, and there should be no need to override it in the passkeyreg theme.
+
+
+
 ## Import and configure workflow
 
 - Import the workflow file `passkeyregistration.bpmn` in the Flow Designer, following the instructions below:
@@ -156,7 +201,7 @@ Triggering the solicited passkey registration from the login page may be useful 
 
 The implementation is very simple - javascript within the login page redirects to the workflow, unless a query string parameter exists in the current page URL which is what the workflow itself sets when redirecting back for login. When this is detected, the regular login page is rendered. 
 
-You can see the implementation of this in the included `combined_login_selection.html` page. Note that in your own deployment you will need to update the themeId parameter used in the launch URL to that of your `passkeyreg` custom theme. You may also wish to put the `combined_login_selection.html` page in the default theme for situations where the user visits the top-level URL of your tenant without a themeId query string parameter.
+You can see the implementation of this in the included `combined_login_selection.html` page. There is a `passkeyregThemeId` variable in the `passkeyreg.js` file that needs to be updated for this to work. You may wish to put the `combined_login_selection.html` page in the default theme for situations where the user visits the top-level URL of your tenant without a themeId query string parameter.
 
 ## Triggering the workflow during password reset
 
@@ -164,7 +209,7 @@ In order to add passkey registration to the end of a reset password operation, y
 
 ![enable password reset](images/enable_password_reset.png?raw=true)
 
-Once that is done, utilise the included `forgot_password_success.html` page to detect if passkey capabilities are available and (when they are) include a link to solicited passkey registration workflow. One drawback to this particular integration is that the user will then immediately have to login again with their new password, then they will be asked again (by the workflow prompt) if they wish to register. Some creative use of a cookie or the ambientCredentials local storage object could optimise out this second prompt, and would definitely be recommended if this was your preferred method of integration.
+Once that is done, utilise the included `forgot_password_success.html` page to detect if passkey capabilities are available and (when they are) include a link to solicited passkey registration workflow. There is a `passkeyregThemeId` variable in the `passkeyreg.js` file that needs to be updated for this to work.  One drawback to this particular integration is that the user will then immediately have to login again with their new password, then they will be asked again (by the workflow prompt) if they wish to register. Some creative use of a cookie or the ambientCredentials local storage object could optimise out this second prompt, and would definitely be recommended if this was your preferred method of integration.
 
 
 # Runtime example

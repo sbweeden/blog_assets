@@ -12,10 +12,12 @@
   <link rel="shortcut icon" type="image/x-icon" href="ui/assets/img/favicon.ico" />
   <link rel="stylesheet" href="usc/css/stateless.css" />
   <link rel="stylesheet" href="template/v1.0/static/theme.css?themeId=@THEME_ID@" />
-  <script>
-    var showAnotherMethod = "@SHOW_ADDITIONAL_METHOD_LINK@";
-    var showInfo = @SHOW_INFO@
-    var doneAllowed = @ALLOW_DONE@
+  <script src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@" id="enrollment-success-script">
+    {
+      "showAnotherMethod": "@SHOW_ADDITIONAL_METHOD_LINK@",
+      "showInfo": @SHOW_INFO@,
+      "doneAllowed": @ALLOW_DONE@
+    }
   </script>
 </head>
 <body>
@@ -42,7 +44,7 @@
           </div>
           <div class="use-another-method" id="use-another-method-link" style="position: absolute; top: 25px">
             <!-- Do not show the add additional method link for this theme. It has no purpose in the solicited passkey enrollment workflow. -->
-            <!-- <a onclick="addMore()" href="javascript:void(0)">$ADD_ADDITIONAL_METHOD_LINK$</a> -->
+            <!-- <a id="addMoreHref">$ADD_ADDITIONAL_METHOD_LINK$</a> -->
           </div>
           <div style="clear: both"></div>
         </div>
@@ -52,28 +54,6 @@
         <input name="operation" type="hidden" value="restart">
       </form>
     </div>
-    <script>
-    showAnotherMethodLink();
-
-    function showAnotherMethodLink () {
-      if (typeof showAnotherMethod !== 'undefined' && showAnotherMethod === "false"){
-        document.getElementById("use-another-method-link").style.display="none";
-      }
-    }
-
-    if (!doneAllowed) {
-      document.getElementById("done-button").disabled = true;
-    }
-
-    if (!showInfo) {
-      document.getElementById("setup-info").style.display = 'none';
-    }
-
-    function addMore() {
-      document.getElementById("add-another-method-form").submit();
-    }
-
-    </script>
     @PAGE_FOOTER@
   </div>
 </body>

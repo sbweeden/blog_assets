@@ -14,6 +14,11 @@
 	<link rel="stylesheet" href="/usc/css/stateless.css">
 	<link rel="stylesheet" href="/idaas/mtfim/static/styles.css">
 	<link rel="stylesheet" href="/template/v1.0/static/theme.css?themeId=@THEME_ID@" />
+	<script src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@" id="combined-login-selection-script">
+		{
+			"themeId": "@THEME_ID@"
+		}
+	</script>
 
         <title>$LOGIN_TITLE$</title>
 
@@ -98,24 +103,6 @@
 			</div>
 		</div>
 		<script type="text/javascript" src="/usc/js/ieCheck.js"></script>
-		<script>
-			window.addEventListener("load", () => {
-
-				let workflowReference = "passkeyregistration";
-				let themeId = "19e725f6-de8d-4332-b047-459c39b9cae1";
-
-				// check query string URL for workflowLaunched=true
-				// if its there, show regular login, otherwise redirect to workflow
-				const urlParams = new URLSearchParams(window.location.search);
-				const workflowLaunched = urlParams.get("workflowLaunched");
-				if (workflowLaunched == "true") {
-					document.getElementById("bodyWrapperDiv").style.display = "block";
-				} else {
-					window.location.replace("/flows/?reference=" + workflowReference + "&themeId=" + themeId)
-				}
-         	});
-
-		</script>
 	</div>
 	</body>
 </html>

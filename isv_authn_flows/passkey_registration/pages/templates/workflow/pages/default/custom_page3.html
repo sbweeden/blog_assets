@@ -8,155 +8,49 @@
     <base href="/" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
     <link rel="shortcut icon" type="image/x-icon" href="/ui/assets/img/favicon.ico" />
-    <!-- Do not remove, Carbon style is used as base -->
-    <link rel="stylesheet" href="/profile/static/carbon-components.min.css">
-    <!---->
-    <!-- Optionally override carbon styles using the common theme.css (common/page_components/default/page_style.css in Theme files) -->
-    <link rel="stylesheet” href=“/template/v1.0/static/theme.css?themeId=@THEME_ID@" />
+
+    <!-- boilerplate borrowed from authsvc pages -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="shortcut icon" type="image/x-icon" href="usc/favicon.ico" />
+	<link rel="stylesheet" href="/usc/css/stateless.css" />
+	<link rel="stylesheet" href="/template/v1.0/static/theme.css?themeId=@THEME_ID@" />
+	
     <!---->
     <title>Solicited Passkey Registration</title>
-    <script type="text/javascript">
-        const LS_AMBIENT_CREDENTIALS = "ambientCredentials";
-
-        // already html encoded
-        var username = "@context.myusername@";
-        var ac = null;
-
-        function showDiv(id) {
-            var mydiv = document.getElementById(id);
-            if (mydiv != null) {
-                mydiv.style.display = "block";
-            }
-        }
-
-        function getAmbientCredentials() {
-            let acStr = localStorage.getItem(LS_AMBIENT_CREDENTIALS);
-            return (acStr == null ? { users: {} } : JSON.parse(acStr));
-        }
-
-        function storeAmbientCredentials() {
-            localStorage.setItem(LS_AMBIENT_CREDENTIALS, JSON.stringify(ac));
-        }
-
-        function registerUVPA() {
-            document.getElementById("passkeyOperation").value = "register";
-            document.getElementById("passkeyForm").submit();
-        }
-
-        function notNowUVPAA() {
-            document.getElementById("passkeyOperation").value = "skip";
-            document.getElementById("passkeyForm").submit();
-        }
-
-        function noUVPAA() {
-            // update localStorage to indicate we never want to do this on this device
-            if (!ac.users[username]) {
-                ac.users[username] = {};
-            }
-            ac.users[username].useFIDO = false;
-            storeAmbientCredentials();
-
-            document.getElementById("passkeyOperation").value = "skip";
-            document.getElementById("passkeyForm").submit();
-        }
-
-        function onLoad() {
-            document.getElementById("usernamediv").innerText = username;
-            ac = getAmbientCredentials();
-            showDiv("msgdiv");
+    <script src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@" id="custom-page3-script">
+        {
+            "username":"@context.myusername@"
         }
     </script>
 
-    <style>
-        html,
-        body {
-            height: 100%;
-            background-color: #f2f4f8;
-        }
 
-        .content {
-            height: inherit;
-        }
-
-        .sw-sign-in {
-            width: 50%;
-            margin-left: auto;
-            margin-right: 0;
-            height: 100%;
-            background-color: #fff;
-            padding: 5rem;
-            padding-top: 100px;
-        }
-
-        #msgdiv {
-            margin-bottom: 2rem;
-        }
-
-        #msgdiv h1,
-        #passkeyForm p {
-            margin-bottom: .5rem;
-        }
-
-        #passkeyForm {
-            max-width: 600px;
-            width: 100%;
-        }
-
-        .button-wrapper {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .login-footer {
-            background-color: #fff;
-            border-top: 2px solid #f2f4f8;
-            bottom: 0;
-            color: #9fa5ad;
-            font-size: 12px;
-            left: 50%;
-            letter-spacing: .1px;
-            line-height: 18px;
-            padding: 20px 50px;
-            position: fixed;
-            right: 0;
-            width: auto;
-            z-index: 1000;
-        }
-    </style>
 </head>
 
-<body class="cs-content" onload="onLoad()">
-    <div class="content">
-        <div class="sw-sign-in">
-            @PAGE_HEADER@
-            <br>
-            <div id="msgdiv" style="display:none;">
+<body>
+    <div class="cs-content">
+        <div class="content">
+            <div id="msgdiv" class="hidden">
                 <h1>Sign in faster</h1>
-                <h4>Hi <span id="usernamediv" style="display:inline-block"></span>,</h4>
+                <h4>Hi <span id="usernamediv" class="inline"></span>,</h4>
             </div>
             <form id="passkeyForm" method="POST" action="@WORKFLOW_CALLBACK_URL@">
                 <input type="hidden" id="passkeyOperation" name="passkeyOperation" value="register" />
                 <p>Want to sign in faster? Add device authentication when signing in to use your device's biometric
                     unlock instead.</p>
-                <p style="font-size:.875rem; font-weight: bold;">Note: Any users that are able to unlock this device with biometric unlock will also be able to access
+                <p class="notefont">Note: Any users that are able to unlock this device with biometric unlock will also be able to access
                     your account.</p>
-                <br>
+                <br>    
                 <div class="button-wrapper">
-                    <button class="bx--btn bx--btn--ghost" type="button" onclick="notNowUVPAA()">Not now</button>
-                    <button class="bx--btn bx--btn--primary" type="button" onclick="registerUVPA()">Yes</button>
+                    <button class="bx--btn bx--btn--ghost" type="button" id="notNowButton">Not now</button>
+                    <button class="bx--btn bx--btn--primary" type="button" id="registerButton">Yes</button>
                 </div>
-                <!-- <input type="button" value="Yes" onclick="registerUVPA()" />&nbsp;
-                <input type="button" value="Not now" onclick="notNowUVPAA()" />&nbsp; -->
-                <!-- <input type="button" value="Never on this device" onclick="noUVPAA()"/> -->
+                <!-- <input type="button" value="Yes" id="registerButton" />&nbsp;
+                <input type="button" value="Not now" id="notNowButton" />&nbsp; 
+                <input type="button" value="Never on this device" id="neverButton" /> -->
             </form>
             <br>
         </div>
-        <!---->
-        @PAGE_FOOTER@
     </div>
-    <script type="text/javascript" src="/profile/static/carbon-components.min.js"></script>
     <script type="text/javascript" src="/usc/js/ieCheck.js"></script>
     <!---->
 </body>

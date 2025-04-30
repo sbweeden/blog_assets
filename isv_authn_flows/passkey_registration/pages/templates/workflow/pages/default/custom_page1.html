@@ -5,12 +5,13 @@
             This page is used to redirect to the location that initiated the workflow.
             It also deletes any existing workflowcallbackurl cookie since we are ending the workflow.
         -->
-        <script>
-            document.cookie = "workflowcallbackurl=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            window.location.replace("@context.Target@");
+        <script src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@" id="custom-page1-script">
+            {
+                "target":"@context.Target@"
+            }
         </script>
     </head>
     <body>
 One moment....
     </body>
-</html>  
+</html>

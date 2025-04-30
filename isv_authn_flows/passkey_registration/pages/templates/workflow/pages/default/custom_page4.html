@@ -6,19 +6,11 @@
              that contains the workflow callback URL. The cookie allows us to include an "exit" capability
              in customised pages of the inline MFA enrollment.
         -->
-        <script>
-            function htmlDecode(s) {
-                if (s) {
-                    return s.replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
-                    
-                } else {
-                    return '';
-                }
+        <script src="/template/v1.0/static/js/passkeyreg.js?themeId=@THEME_ID@" id="custom-page4-script">
+            {
+                "workflowCallbackURL":"@WORKFLOW_CALLBACK_URL@",
+                "passkeyURL": "@context.passkeyUrl@"
             }
-
-            document.cookie="workflowcallbackurl=@WORKFLOW_CALLBACK_URL@;path=/";
-            var redirectURL = htmlDecode("@context.passkeyUrl@")+"&Target=@WORKFLOW_CALLBACK_URL@"
-            window.location.replace(redirectURL);
         </script>
     </head>
     <body>
