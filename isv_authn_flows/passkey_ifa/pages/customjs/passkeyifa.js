@@ -360,12 +360,39 @@ function onLoadCustomPage1(scriptElement) {
 }
 
 /***************************
+ * Used by combined_login_selection.html
+***************************/
+
+function onLoadCombinedLoginSelection(scriptElement) {
+    commonOnLoad(scriptElement);
+    let tagJson = JSON.parse(scriptElement.textContent);
+
+    let workflowReference = "passkeyifa";
+
+    // check query string URL for normalLogin=true
+    // if its there, show regular login, otherwise redirect to workflow
+    const urlParams = new URLSearchParams(window.location.search);
+    const workflowLaunched = urlParams.get("normalLogin");
+    const targetURL = urlParams.get("Target");
+    if (workflowLaunched == "true") {
+        document.getElementById("bodyWrapperDiv").style.display = "block";
+    } else {
+        window.location.replace("/flows/?reference=" + workflowReference + ((targetURL != null && targetURL.length > 0) ? ("&Target="+encodeURIComponent(targetURL)) : ""));
+    }
+}
+
+/***************************
  * Main entry point
 ***************************/
 
 window.addEventListener("load", () => {
     let customPage1ScriptElement = document.getElementById('custom-page1-script');
-    if (customPage1ScriptElement != null) {
+
+    let combinedLoginSelectionScriptElement = document.getElementById('combined-login-selection-script');
+    if (combinedLoginSelectionScriptElement != null) {
+        // onload function for combined_login_selection.html
+        onLoadCombinedLoginSelection(combinedLoginSelectionScriptElement);
+    } else if (customPage1ScriptElement != null) {
         // onload function for custom_page1.html
         onLoadCustomPage1(customPage1ScriptElement);
     }
