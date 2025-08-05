@@ -110,8 +110,8 @@ local THRESHOLD = 0.5
 --
 -- From your Google config for recapthca
 --
---local siteKey = "YOUR_SITE_KEY"
---local secretKey = "YOUR_SITE_SECRET_KEY"
+local siteKey = "YOUR_SITE_KEY"
+local secretKey = "YOUR_SITE_SECRET_KEY"
 
 -- used for testing only
 local ignoreServerSSLCertificates = false
