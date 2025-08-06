@@ -102,6 +102,12 @@ local logger = require 'LoggingUtils'
 local formsModule = require 'FormsModule'
 
 --
+-- From your Google config for recapthca
+--
+-- local siteKey = "YOUR_SITE_KEY"
+-- local secretKey = "YOUR_SITE_SECRET_KEY"
+
+--
 -- Risk score threshold. Scores below this number will result in a denied page.
 --
 local RISK_SCORE_THRESHOLD = 0.5
@@ -116,13 +122,6 @@ local MAX_CLOCK_SKEW_SECONDS = 10
 -- be validated to match. Note that the action is set in the client-side javascript
 -- when calling grecaptcha.execute (see example for login_recaptchav3.js above)
 local VALIDATE_ACTION="login"
-
-
---
--- From your Google config for recapthca
---
--- local siteKey = "YOUR_SITE_KEY"
--- local secretKey = "YOUR_SITE_SECRET_KEY"
 
 -- used for testing only
 local ignoreServerSSLCertificates = false
@@ -200,6 +199,41 @@ local function dateStringToEpochSeconds(dateStr)
 end
 
 --
+-- Utility function to extract leftmost of a string of comma separated values
+-- and return it if it looks like an IPv4 address.
+-- Otherwise return null
+--
+function extractClientIP(headerVal)
+	local result = nil
+
+	if (headerVal ~= nil) then
+		local parts = {}
+		local numparts = 0
+		for part in string.gmatch(headerVal, "([^,]+)") do
+			table.insert(parts, part)
+			numparts = numparts + 1
+		end
+
+		if (numparts > 0) then
+			local candidate = parts[1]
+			-- remove and leading and trailing whitespace
+			if (candidate ~= nil) then
+				candidate = candidate:gsub("^%s+", "")
+				candidate = candidate:gsub("%s+$", "")
+
+				-- does it look like an IPv4 address?
+				local o1,o2,o3,o4 = string.match(candidate, "^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+				if (o1 and o2 and o3 and o4) then
+					result = candidate
+				end
+			end
+		end
+	end
+
+	return result
+end
+
+--
 -- Utility function to return a page response with pre-html encoded html content
 --
 local function pageResponseHTML(statusCode, statusMsg, html)
@@ -234,11 +268,18 @@ function processPage()
 		bodyParams["secret"] = secretKey
 		bodyParams["response"] = postParams["recaptchav3Token"]
 
-		-- should do better validation and parsing of this header first
-		if (HTTPRequest.getHeader("X-Forwarded-For") ~= nil) then
-			bodyParams["remoteip"] = HTTPRequest.getHeader("X-Forwarded-For")
+		-- if X-Forwarded-For is present and looks like it contains a client IPv4 address, use that
+		-- as the remoteip, otherwise use Client.getIPAddress() gives us
+		local clientIP = extractClientIP(HTTPRequest.getHeader("X-Forwarded-For"))
+		if (clientIP == nil) then
+			clientIP = Client.getIPAddress()
+		end
+		-- if we ended up with a value, add it
+		if (clientIP ~= nil) then
+			bodyParams["remoteip"] = clientIP
 		end
 		
+		-- useful for debugging
 		logger.debugLog("recaptchav3 invoked with params: " .. logger.dumpAsString(bodyParams))
 		
 		local req = httpreq.new_from_uri("https://www.google.com/recaptcha/api/siteverify")
@@ -284,6 +325,7 @@ function processPage()
 			--
 			local rspbody = assert(stream:get_body_as_string())
 			if not (rspbody == nil or (not rspbody)) then
+				-- useful for debugging
 				logger.debugLog("Received evaluation response: " .. rspbody)
 				
 				-- check the results
@@ -298,7 +340,8 @@ function processPage()
 						local current_time_epoch_seconds = os.time()
 						local offsetSeconds = getTimezoneOffsetSeconds()
 
-						logger.debugLog("challenge time: " .. (rspJSON["challenge_ts"] or "nil") .. " current_time_epoch_seconds: " .. current_time_epoch_seconds .. " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
+						-- debugging
+						-- logger.debugLog("challenge time: " .. (rspJSON["challenge_ts"] or "nil") .. " current_time_epoch_seconds: " .. current_time_epoch_seconds .. " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
 
 						-- check that the challenge is in the past, and that the challenge is not too old, allowing for small clock skew
 						if (not(
