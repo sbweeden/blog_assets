@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!--
+   IBM Confidential 
+   PID 5725-V89 5725-V90 5737-F02
+
+   Copyright IBM Corp. 2022, 2023
+ -->
+<html lang="%LANGUAGE%">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>%MSG{0x38983737}%</title>
+    <link href="%PKMSPUBLIC%default.css" rel="stylesheet" type="text/css"></link>
+
+    <!-- ClickJack projection from: 
+         https://www.owasp.org/index.php/Clickjacking_Defense_Cheat_Sheet
+      -->
+    <link href="%PKMSPUBLIC%anti_clickjack.css" id="antiClickjack" rel="stylesheet" type="text/css"></link>
+    <script type="text/javascript" src="%PKMSPUBLIC%anti_clickjack.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js?render=YOUR_SITE_KEY"></script>
+    <script src="%PKMSPUBLIC%login_recaptchav3.js"></script>
+  </head>
+
+ <body>
+    <div class="content" role="main">
+      <script type="text/javascript" src="%PKMSPUBLIC%cookie_check.js"></script>
+
+      <noscript>
+        <b>%MSG{0x3898370b}%%MSG{0x3898370e}%</b> %MSG{0x3898370c}%
+      </noscript>
+
+      <div class="message-container">
+        <h2>%MSG{0x38983737}%</h2>
+        %BASICAUTHN%
+        <form method="POST" action="/pkmslogin.form">
+          <div class="login-inputs">
+            <label for="username">%MSG{0x3898370f}%%MSG{0x3898370e}%</label>
+            <input class="ease-in-anim-fast" placeholder="%MSG{0x3898370f}%" id="username" type="text" name="username" value="%USERNAME%">
+            <label for="password">%MSG{0x38983710}%%MSG{0x3898370e}%</label>
+            <input class="ease-in-anim-fast" placeholder="%MSG{0x38983710}%" id="password" type="password" name="password" autocomplete="off">
+            <input TYPE="hidden" NAME="login-form-type" VALUE="pwd">
+            <input TYPE="hidden" NAME="token" VALUE="%CREDATTR{tagvalue_session_index}%">
+
+        <!-- Remember my username block
+            <input type="checkbox" id="remember-username" name="remember-username" value="true">
+            <label for="remember-username">Remember my username</label><br>
+         -->
+        <!-- Remember my session block
+            <input type="checkbox" id="remember-session" name="remember-session" value="true">
+            <label for="remember-session">Keep me logged in</label><br>
+
+            <input TYPE="hidden" NAME="login-response-type" VALUE="success_page">
+         -->
+            <input class="submitButton button-1 ease-in-anim-fast" type="submit" value="%MSG{0x3898370a}%">
+          </div>
+        </form>
+        <!--
+        -->
+
+        %OIDCAUTHN%
+        <hr>
+        <form method=GET action="/pkmsoidc">
+          <div class="login-inputs">
+            <input TYPE="hidden" NAME="iss" VALUE="">
+            <input TYPE="hidden" NAME="token" VALUE="%CREDATTR{tagvalue_session_index}%">
+            <input class="submitButton button-1 ease-in-anim-fast" type="submit" value="%MSG{0x38983717}%">
+          </div>
+        </form>
+        <!--
+          If Content-Security-Policy headers are configured, this button 
+          will not work unless the form-action is updated to include the
+          hostname of the OIDC provider. 
+          
+          For example, to update the default Content-Security-Policy for
+          myoidcprovider.com:
+
+          [acnt-mgt]
+          http-rsp-header = content-security-policy:TEXT{default-src 'self'; frame-ancestors 'self'; form-action 'self' https://myoidcprovider.com;}
+        -->
+
+        <div class="error-box" id="error-box">
+          <img src="%PKMSPUBLIC%error_box.png"/>
+          <div id="errId" role="alertdialog">%ERROR%</div>
+        </div>
+      </div>
+      <script type="text/javascript" src="%PKMSPUBLIC%login.js" error_message="%ERROR%" url="%URL_ENCODED%" isFormLogin="true" focus="" id=login></script>
+
+      <div class="footer">
+        <div id="clock">
+            12:55 PM
+        </div>
+        <script type="text/javascript" src="%PKMSPUBLIC%update_clock.js"></script>
+      </div>
+    </div>
+  </body>
+</html>
+
