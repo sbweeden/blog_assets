@@ -74,6 +74,7 @@
 			}
 		}
 	});
+
 	//
 	// End login_recaptchav3.js
 	//
@@ -103,7 +104,13 @@ local formsModule = require 'FormsModule'
 --
 -- Risk score threshold. Scores below this number will result in a denied page.
 --
-local THRESHOLD = 0.5
+local RISK_SCORE_THRESHOLD = 0.5
+
+-- challenge time related constraints
+-- Note that it makes no sense to set a MAX_CHALLENGE_AGE_SECONDS greater than 120
+-- as Google says that is the maximum age of a response token
+local MAX_CHALLENGE_AGE_SECONDS = 30
+local MAX_CLOCK_SKEW_SECONDS = 10
 
 
 
@@ -146,6 +153,49 @@ HMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==
 ]]
 
 --
+-- Returns the current timezone offset in seconds "ahead of" GMT
+-- can be negative if local timezone is before GMT
+--
+local function getTimezoneOffsetSeconds()
+	local timezone = os.date('%z') -- eg +1000
+	local sign, tzhours, tzmins = timezone:match '([+-])(%d%d)(%d%d)'
+	-- return how many seconds the current timezone is ahead of GMT
+	return (tonumber(sign..tzhours)*3600 + tonumber(sign..tzmins)*60)
+end
+
+--
+-- Utility function to convert a date string of the format YYYY-MM-DDThh:mm:ssZ
+-- to a number of seconds since epoch. It will return -1 if the string
+-- does not match the prescribed format.
+--
+local function dateStringToEpochSeconds(dateStr)
+	local result = -1
+
+	if (dateStr ~= nil) then
+		local pattern = "(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)Z"
+		local start, finish, year, month, day, hour, minute, second = string.find(dateStr, pattern)
+
+		-- check we parsed it ok
+		if (start == 1 and finish == string.len(dateStr)) then
+			-- os.time with a table assumes the values are in the local timezone, so after getting the result 
+			-- we add the local timezone offset to give seconds since epoch
+			result = os.time({
+				year = year,
+				month = month,
+				day = day,
+				hour = hour,
+				min = minute,
+				sec = second
+			}) + getTimezoneOffsetSeconds()
+		else
+			logger.debugLog("dateStr did not match expected format: " .. dateStr)
+		end
+	end
+
+	return result
+end
+
+--
 -- Utility function to return a page response with pre-html encoded html content
 --
 local function pageResponseHTML(statusCode, statusMsg, html)
@@ -179,6 +229,7 @@ function processPage()
 		local bodyParams = {}
 		bodyParams["secret"] = secretKey
 		bodyParams["response"] = postParams["recaptchav3Token"]
+
 		-- should do better validation and parsing of this header first
 		if (HTTPRequest.getHeader("X-Forwarded-For") ~= nil) then
 			bodyParams["remoteip"] = HTTPRequest.getHeader("X-Forwarded-For")
@@ -189,7 +240,6 @@ function processPage()
 		local req = httpreq.new_from_uri("https://www.google.com/recaptcha/api/siteverify")
 		
 		local myctx = tls.new_client_context() 
-		
 		
 		if (ignoreServerSSLCertificates) then
 			myctx:setVerify(require "openssl.ssl.context".VERIFY_NONE)
@@ -232,14 +282,29 @@ function processPage()
 			if not (rspbody == nil or (not rspbody)) then
 				logger.debugLog("Received evaluation response: " .. rspbody)
 				
-				-- check the score
+				-- check the results
 				local rspJSON = cjson.decode(rspbody)
 				if (rspJSON["success"]) then
-					if (rspJSON["score"] < THRESHOLD) then
-						-- this really should be html encoded
-						pageResponse400('Bot detected')
+
+					-- ensure challenge is valid - not in the future, and within MAX_CHALLENGE_AGE_SECONDS, allowing for a small clock skew
+					local challenge_ts_epoch_seconds = dateStringToEpochSeconds(rspJSON["challenge_ts"])
+					local current_time_epoch_seconds = os.time()
+					local offsetSeconds = getTimezoneOffsetSeconds()
+
+					logger.debugLog("challenge time: " .. (rspJSON["challenge_ts"] or "nil") .. " current_time_epoch_seconds: " .. current_time_epoch_seconds .. " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
+
+					-- check that the challenge is in the past, and that the challenge is not too old, allowing for small clock skew
+					if (not(
+						((challenge_ts_epoch_seconds-MAX_CLOCK_SKEW_SECONDS) > current_time_epoch_seconds) or 
+						((current_time_epoch_seconds-challenge_ts_epoch_seconds) > (MAX_CHALLENGE_AGE_SECONDS+MAX_CLOCK_SKEW_SECONDS)))) then
+						-- challenge time is within bounds, check the score
+						if (rspJSON["score"] < RISK_SCORE_THRESHOLD) then
+							pageResponse400('Bot detected')
+						else
+							-- no action needed - human detected
+						end
 					else
-						-- no action needed - human detected
+						pageResponse400("processPage: recaptchav3 invalid challenge time: " .. (rspJSON["challenge_ts"] or "nil") ..  " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
 					end
 				else
 					pageResponse400("processPage: did not receive successful response from recaptchav3 evaluation")
