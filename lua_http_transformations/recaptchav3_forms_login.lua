@@ -56,7 +56,7 @@
 				submitButton.addEventListener("click", (e) => {
 					e.preventDefault();
 					grecaptcha.ready(function() {
-				    	grecaptcha.execute(siteKey, {action: 'submit'})
+				    	grecaptcha.execute(siteKey, {action: 'login'})
 				    	.then((token) => {
 				              // Include token in hidden field in form submit
 							  let recaptchav3Token = document.createElement("input");
@@ -112,13 +112,17 @@ local RISK_SCORE_THRESHOLD = 0.5
 local MAX_CHALLENGE_AGE_SECONDS = 30
 local MAX_CLOCK_SKEW_SECONDS = 10
 
+-- If this variable is not nil, then the "action" property of the response will
+-- be validated to match. Note that the action is set in the client-side javascript
+-- when calling grecaptcha.execute (see example for login_recaptchav3.js above)
+local VALIDATE_ACTION="login"
 
 
 --
 -- From your Google config for recapthca
 --
-local siteKey = "YOUR_SITE_KEY"
-local secretKey = "YOUR_SITE_SECRET_KEY"
+-- local siteKey = "YOUR_SITE_KEY"
+-- local secretKey = "YOUR_SITE_SECRET_KEY"
 
 -- used for testing only
 local ignoreServerSSLCertificates = false
@@ -286,25 +290,31 @@ function processPage()
 				local rspJSON = cjson.decode(rspbody)
 				if (rspJSON["success"]) then
 
-					-- ensure challenge is valid - not in the future, and within MAX_CHALLENGE_AGE_SECONDS, allowing for a small clock skew
-					local challenge_ts_epoch_seconds = dateStringToEpochSeconds(rspJSON["challenge_ts"])
-					local current_time_epoch_seconds = os.time()
-					local offsetSeconds = getTimezoneOffsetSeconds()
+					-- ensure that the action field is validated if a validation value is supplied
+					if (VALIDATE_ACTION == nil or (rspJSON["success"] ~= nil and rspJSON["action"] == VALIDATE_ACTION)) then
 
-					logger.debugLog("challenge time: " .. (rspJSON["challenge_ts"] or "nil") .. " current_time_epoch_seconds: " .. current_time_epoch_seconds .. " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
+						-- ensure challenge is valid - not in the future, and within MAX_CHALLENGE_AGE_SECONDS, allowing for a small clock skew
+						local challenge_ts_epoch_seconds = dateStringToEpochSeconds(rspJSON["challenge_ts"])
+						local current_time_epoch_seconds = os.time()
+						local offsetSeconds = getTimezoneOffsetSeconds()
 
-					-- check that the challenge is in the past, and that the challenge is not too old, allowing for small clock skew
-					if (not(
-						((challenge_ts_epoch_seconds-MAX_CLOCK_SKEW_SECONDS) > current_time_epoch_seconds) or 
-						((current_time_epoch_seconds-challenge_ts_epoch_seconds) > (MAX_CHALLENGE_AGE_SECONDS+MAX_CLOCK_SKEW_SECONDS)))) then
-						-- challenge time is within bounds, check the score
-						if (rspJSON["score"] < RISK_SCORE_THRESHOLD) then
-							pageResponse400('Bot detected')
+						logger.debugLog("challenge time: " .. (rspJSON["challenge_ts"] or "nil") .. " current_time_epoch_seconds: " .. current_time_epoch_seconds .. " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
+
+						-- check that the challenge is in the past, and that the challenge is not too old, allowing for small clock skew
+						if (not(
+							((challenge_ts_epoch_seconds-MAX_CLOCK_SKEW_SECONDS) > current_time_epoch_seconds) or 
+							((current_time_epoch_seconds-challenge_ts_epoch_seconds) > (MAX_CHALLENGE_AGE_SECONDS+MAX_CLOCK_SKEW_SECONDS)))) then
+							-- challenge time is within bounds, check the score
+							if (rspJSON["score"] < RISK_SCORE_THRESHOLD) then
+								pageResponse400('Bot detected')
+							else
+								-- no action needed - human detected
+							end
 						else
-							-- no action needed - human detected
+							pageResponse400("processPage: recaptchav3 invalid challenge time: " .. (rspJSON["challenge_ts"] or "nil") ..  " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
 						end
 					else
-						pageResponse400("processPage: recaptchav3 invalid challenge time: " .. (rspJSON["challenge_ts"] or "nil") ..  " current time: " .. os.date("%Y-%m-%dT%H:%M:%SZ", (current_time_epoch_seconds-offsetSeconds)))
+						pageResponse400("processPage: recaptchav3 invalid action: " .. (rspJSON["action"] or "nil"))
 					end
 				else
 					pageResponse400("processPage: did not receive successful response from recaptchav3 evaluation")
