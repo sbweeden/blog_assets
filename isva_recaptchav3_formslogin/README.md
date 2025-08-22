@@ -4,7 +4,7 @@
 
 Google's [recaptchav3](https://developers.google.com/recaptcha/docs/v3) API offers a risk-score based bot detection capability. This can be used for fraud detection in any transaction, and one such example is to mitigate credential stuffing attacks against username/password login forms.
 
-The IBM Verify Idetity Access (IVIA) web reverse proxy (which I've know as WebSEAL for 20+ years and will continue to refer to by that name) has a default forms-based login capability which allows authentication of users against a configured user directory. This article will demonstrate how to add Google recaptchav3 support to WebSEAL forms-based login. 
+The IBM Verify Identity Access (IVIA) web reverse proxy (which I've know as WebSEAL for 20+ years and will continue to refer to by that name) has a default forms-based login capability which allows authentication of users against a configured user directory. This article will demonstrate how to add Google recaptchav3 support to WebSEAL forms-based login. 
 
 ## Details
 
