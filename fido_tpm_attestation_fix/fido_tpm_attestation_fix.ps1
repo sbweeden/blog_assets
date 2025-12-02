@@ -22,11 +22,13 @@
 #
 # If you encounter an error indicating that running scripts is disabled on your system, run PowerShell as Administrator then:
 #
-# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+# Set-ExecutionPolicy -ExecutionPolicy Bypass
 #
 # Select Y to allow. Then the script should execute ok. You can use this command to see current execution policy:
 #
 # Get-ExecutionPolicy -List
+#
+# For more information on execution policies see: https://go.microsoft.com/fwlink/?LinkID=135170
 #
 param(
     [switch]$help,
