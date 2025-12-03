@@ -30,7 +30,14 @@ local WEBSEAL_SESSION_COOKIE_NAME = Control.getConfig("session", "ssl-session-co
 local OP_DISCOVERY_ENDPOINT=Control.getConfig("oidc:default", "discovery-endpoint")
 local CLIENT_ID=Control.getConfig("oidc:default", "client-id")
 local CLIENT_SECRET=Control.getConfig("oidc:default", "client-secret")
-local REDIRECT_URL = "https://" .. Control.getConfig("oidc:default", "redirect-uri-host") .. "/pkmsoidc"
+
+local redirect_uri_host = Control.getConfig("oidc:default", "redirect-uri-host")
+if (redirect_uri_host == nil) then
+        redirect_uri_host = HTTPRequest.getHeader("host")
+        logger.debugLog("Setting redirect_uri_host: " .. redirect_uri_host)
+end
+
+local REDIRECT_URL = "https://" .. redirect_uri_host .. "/pkmsoidc"
 
 local SELF_WEBSEAL_OIDC_KICKOFF_URL=REDIRECT_URL .. "?iss=default"
 
@@ -92,9 +99,9 @@ function parRequest(oidcDiscoveryDocument, oidcRedirectURL)
         --    
         
         local _,_,redirURL = string.find(oidcRedirectURL, "(.+)%?")
-        logger.debugLog("parRequest: oidcRedirectURL: " .. oidcRedirectURL)
-        logger.debugLog("parRequest: redirURL: " .. (redirURL ~= nil and redirURL or 'nil'))
-        local aznParams = formsModule.getQueryParams(oidcRedirectURL) 
+        --logger.debugLog("parRequest: oidcRedirectURL: " .. oidcRedirectURL)
+        --logger.debugLog("parRequest: redirURL: " .. (redirURL ~= nil and redirURL or 'nil'))
+        local aznParams = formsModule.getQueryParams(oidcRedirectURL)
 
         -- really import - make sure we do not use the shared cookie store for these requests
         -- see: https://daurnimator.github.io/lua-http/0.3/#http.request.cookie_store
@@ -113,6 +120,7 @@ function parRequest(oidcDiscoveryDocument, oidcRedirectURL)
 
         -- set post body params
         local body = formsModule.getPostBody(aznParams)
+        logger.debugLog("parRequest: body: " .. body)
 	req:set_body(body)
 
 
@@ -125,7 +133,7 @@ function parRequest(oidcDiscoveryDocument, oidcRedirectURL)
         local headers, stream = assert(req:go())
 
         local httpStatusCode = headers:get ":status"
-        logger.debugLog("parRequest HTTP response status: " .. httpStatusCode)
+        --logger.debugLog("parRequest HTTP response status: " .. httpStatusCode)
         if httpStatusCode == "201" then
                 local rspbody = assert(stream:get_body_as_string())
                 if not (rspbody == nil or (not rspbody)) then
@@ -160,13 +168,15 @@ function oidcKickoff()
         -- because we are expecting a 302 that we want to capture
         req.follow_redirects = false
 
+        -- for some (as yet undiganosed) reason http2 requests to this endpoint that returns a 302 do not work, so downgrade it
+        req.version = 1
+
         -- update request HTTP headers
         -- note use of upsert here (rather than append) to replace any defaults
         req.headers:upsert("accept", "*/*")
 
         -- We MUST already have a session. This request has to be on the same session so that the state_id is
         -- bound to the same session on redirect from the OP. Therefore re-use the session cookie in this request.
-        -- 
         req.headers:upsert("Cookie", "PD-S-SESSION-ID=" .. HTTPRequest.getCookie(WEBSEAL_SESSION_COOKIE_NAME))
 
         -- we are going to use TLS	
@@ -175,7 +185,9 @@ function oidcKickoff()
         -- ignore SSL cert errors - bit sketchy, but better than having to figure out the localhost certificate for the runtime
         req.ctx:setVerify(require "openssl.ssl.context".VERIFY_NONE)
 
+        logger.debugLog("oidcKickoff about to call go on url: " .. SELF_WEBSEAL_OIDC_KICKOFF_URL)
         local headers, stream = assert(req:go())
+        logger.debugLog("oidcKickoff finished calling go on url: " .. SELF_WEBSEAL_OIDC_KICKOFF_URL)
 
         local httpStatusCode = headers:get ":status"
         logger.debugLog("parRequest HTTP response status: " .. httpStatusCode)
