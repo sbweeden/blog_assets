@@ -1,5 +1,13 @@
 --[[
-        A HTTP transformation that can be used to terminate all sessions for a user. 
+        A HTTP transformation that can be used to terminate a specific session, or all sessions for a user. 
+
+
+        If terminating a specific session, the value to pass in the URL is the portion of the credential's tagvalue_tagvalue_user_session_id
+        attribute AFTER the first underscore. So if the attribute is:
+        tagvalue_user_session_id	aWFnZGVtby03ZjVkNTdkNzg1LTg3NWxtLWRlZmF1bHQA_aXrZGAAAAAIAAAAsGNl6aUi1A+QBcgAASVZRNFJ4ajZFTnZDb3FpdEkxamdZR3NGOGNnWk13S3dTOFVHaGplQ1ZCVT0=:
+
+        Then use: https://webseal.com/terminate/session/aXrZGAAAAAIAAAAsGNl6aUi1A+QBcgAASVZRNFJ4ajZFTnZDb3FpdEkxamdZR3NGOGNnWk13S3dTOFVHaGplQ1ZCVT0=:
+
         Requires both http-transformation and eai trigger URL configuration.
 
         ================
