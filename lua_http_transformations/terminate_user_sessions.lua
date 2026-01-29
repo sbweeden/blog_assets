@@ -1,0 +1,76 @@
+--[[
+        A HTTP transformation that can be used to terminate all sessions for a user. 
+        Requires both http-transformation and eai trigger URL configuration.
+
+        ================
+
+        [http-transformations]
+        terminate_user_sessions = terminate_user_sessions.lua
+
+        [http-transformations:terminate_user_sessions]
+        request-match = preazn:GET /terminate*
+
+        [eai-trigger-urls]
+        trigger = /terminate*
+
+        =============
+--]]
+
+local urlencode = require 'urlencode'
+
+function debugLog(s)
+   print(s)
+--   Control.trace(9, s)
+end
+
+function htmlEncode(str)
+    if str == nil then
+        return nil
+    end
+    
+    -- Replace HTML special characters with their entity equivalents
+    local html_entities = {
+        ["&"] = "&amp;",
+        ["<"] = "&lt;",
+        [">"] = "&gt;",
+        ['"'] = "&quot;",
+        ["'"] = "&#39;"
+    }
+    
+    return (str:gsub("[&<>\"']", html_entities))
+end
+
+
+
+
+-- Extract the username from the path /terminate/<username>
+local _,_,username = string.find(HTTPRequest.getURL(), "/terminate/user/(.+)")
+local _,_,sessionid = string.find(HTTPRequest.getURL(), "/terminate/session/(.+)")
+
+-- TODO
+--   1. For HTTP response header safety and to prevent bad data injection, perform validation on the username and sessionid to ensure only permitted characters are used.
+--   2. This should only be accessed and executed by a trusted client. Need to add some way to authenticate clients that are calling this management function.
+
+if (username == nil and sessionid == nil) then
+    debugLog("terminate_user_sessions: unable to determine username or session id")
+    HTTPResponse.setStatusCode(400)
+    HTTPResponse.setStatusMsg("Bad Request")
+    HTTPResponse.setBody('<html>Invalid request</html>')
+elseif (username ~= nil) then
+    debugLog("terminate_user_sessions: terminating sessions for user: " .. username)
+    HTTPResponse.setStatusCode(200)
+    HTTPResponse.setStatusMsg("OK")
+    HTTPResponse.setBody('<html>Deleting sessions for user ... ' .. htmlEncode(username) .. '</html>')
+    HTTPResponse.setHeader("am-eai-flags", "stream")
+    HTTPResponse.setHeader("am-eai-server-task", "terminate all_sessions " .. username)
+elseif (sessionid ~= nil) then
+    debugLog("terminate_user_sessions: terminating session id: " .. sessionid)
+    HTTPResponse.setStatusCode(200)
+    HTTPResponse.setStatusMsg("OK")
+    HTTPResponse.setBody('<html>Deleting session id ... ' .. htmlEncode(sessionid) .. '</html>')
+    HTTPResponse.setHeader("am-eai-flags", "stream")
+    --HTTPResponse.setHeader("am-eai-server-task", "terminate session " .. urlencode.encode_url(sessionid))
+    HTTPResponse.setHeader("am-eai-server-task", "terminate session " .. sessionid)
+end
+Control.responseGenerated(true)
+
