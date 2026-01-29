@@ -7,7 +7,7 @@ local HTMLUtils = {}
 --
 -- Performs html encoding of a string
 --
-function htmlEncode(str)
+function HTMLUtils.htmlEncode(str)
     if str == nil then
         return nil
     end
@@ -25,7 +25,7 @@ function htmlEncode(str)
 end
 
 -- Performs html decoding of a string
-function htmlDecode(str)
+function HTMLUtils.htmlDecode(str)
     if str == nil then
         return nil
     end
