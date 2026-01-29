@@ -85,7 +85,6 @@ elseif (sessionid ~= nil) then
     HTTPResponse.setStatusMsg("OK")
     HTTPResponse.setBody('<html>Deleting session id ... ' .. htmlEncode(sessionid) .. '</html>')
     HTTPResponse.setHeader("am-eai-flags", "stream")
-    --HTTPResponse.setHeader("am-eai-server-task", "terminate session " .. urlencode.encode_url(sessionid))
     HTTPResponse.setHeader("am-eai-server-task", "terminate session " .. sessionid)
 end
 Control.responseGenerated(true)
