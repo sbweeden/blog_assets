@@ -2,8 +2,16 @@
         A HTTP transformation that can be used to terminate a specific session, or all sessions for a user. 
 
 
+        If terminating all sessions for the user, use the AZN_CRED_PRINCIPAL_NAME attribute value as the username to pass. So if the attribute is:
+        
+        AZN_CRED_PRINCIPAL_NAME	testuser
+
+        Then use: https://webseal.com/terminate/user/testuser
+
+
         If terminating a specific session, the value to pass in the URL is the portion of the credential's tagvalue_tagvalue_user_session_id
         attribute AFTER the first underscore. So if the attribute is:
+        
         tagvalue_user_session_id	aWFnZGVtby03ZjVkNTdkNzg1LTg3NWxtLWRlZmF1bHQA_aXrZGAAAAAIAAAAsGNl6aUi1A+QBcgAASVZRNFJ4ajZFTnZDb3FpdEkxamdZR3NGOGNnWk13S3dTOFVHaGplQ1ZCVT0=:
 
         Then use: https://webseal.com/terminate/session/aXrZGAAAAAIAAAAsGNl6aUi1A+QBcgAASVZRNFJ4ajZFTnZDb3FpdEkxamdZR3NGOGNnWk13S3dTOFVHaGplQ1ZCVT0=:
