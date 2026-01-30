@@ -7,7 +7,7 @@ local logger = require 'LoggingUtils'
 local RedisHelper = {}
 
 local REDIS_CONFIG = {
-    ["PREFIX"] = "iag-",
+    ["PREFIX"] = "isva-",
     ["HOST"] = "redis",
     ["PORT"] = 6379
 }
