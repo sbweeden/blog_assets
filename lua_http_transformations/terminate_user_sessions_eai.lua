@@ -59,7 +59,7 @@ end
 
 
 
--- Extract the username from the path /terminate/<username>
+-- Extract the username or session id from the path
 local _,_,username = string.find(HTTPRequest.getURL(), "/terminate/user/(.+)")
 local _,_,sessionid = string.find(HTTPRequest.getURL(), "/terminate/session/(.+)")
 

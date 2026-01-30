@@ -81,7 +81,7 @@ end
 logger.debugLog("terminate_user_sessions on pod: " .. (os.getenv("HOSTNAME") or 'nil') .. ' for URL: ' .. HTTPRequest.getURL())
 
 
--- Extract the username from the path /terminate/<username>
+-- Extract the username from the path /terminate/user/<username>
 local _,_,username = string.find(HTTPRequest.getURL(), "/terminate/user/(.+)")
 
 -- TODO
