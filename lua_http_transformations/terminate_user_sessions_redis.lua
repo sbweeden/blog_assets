@@ -25,7 +25,7 @@ policies:
 
 ====== WebSEAL example ==========
 [http-transformations]
-terminate_user_sessions = terminate_user_sessions.lua
+terminate_user_sessions = terminate_user_sessions_redis.lua
 
 [http-transformations:terminate_user_sessions]
 request-match = preazn:GET /terminate*
