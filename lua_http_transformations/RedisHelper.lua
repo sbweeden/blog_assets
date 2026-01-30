@@ -111,7 +111,6 @@ function RedisHelper.deleteSessionsForUser(client, username)
             -- determine the sessionID from the entry
             local sidRegexp = escape_pattern(REDIS_CONFIG["PREFIX"] .. "session-") .. "(.+)"
             local sessionID = string.match(v, sidRegexp)
-            logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
             if (sessionID ~= nil) then
                 -- delete this sessions keys
                 RedisHelper.deleteSessionByID(client, sessionID)
