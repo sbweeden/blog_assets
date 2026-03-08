@@ -84,6 +84,23 @@ local function removeLeadingZeros(data, minLength)
 end
 
 --[[
+    Removes leading zero bytes from a byte string, whist ensuring the byte string is not truncated 
+    below the minLength number of bytes (provided it was at least that long to start with), then
+    adds leading zeros until the length of the byte string is equal to the specified length.
+    @param data: The byte string to process
+    @param len: The desired length of the resulting byte string
+    @return: The byte string padded to the desired length so long as the byte string, after leading zeros are removed,
+    is less than or equal to that length
+--]]
+local function padToLength(data, len)
+    local result = removeLeadingZeros(data, len)
+    if #result < len then
+        result = string.rep("\x00", len - #result) .. result
+    end
+    return result
+end
+
+--[[
     Pads a byte string with a leading zero byte if the leading byte indicates a signed value.
     This ensures proper interpretation of the byte string as an unsigned value by prepending
     0x00 when the leading byte is greater than 127 (0x7F).
@@ -104,13 +121,13 @@ end
 
 --[[
     Extracts the r and s components from an OpenSSL EC signature in DER format.
-    Decodes the BER-encoded signature and extracts the two INTEGER values (r and s),
-    removing leading zeros while ensuring each component is the expected byte length.
+    Decodes the BER-encoded signature and extracts the two INTEGER values (r and s)
+    then pads them with leading zeros (or removes padding of leading zeros) to achieve a desired length
     @param sigBytes: The DER-encoded EC signature byte string
-    @param expectedByteLength: Expected byte length of r and s
+    @param requiredByteLength: The length to pad the r and s values to in bytes
     @return r, s: The r and s components as byte strings, or nil, nil if parsing fails
 --]]
-local function getRandSFromOpenSSLECSignature(sigBytes, expectedByteLength)
+local function getRandSFromOpenSSLECSignature(sigBytes, requiredByteLength)
     local r = nil
     local s = nil
 
@@ -121,13 +138,14 @@ local function getRandSFromOpenSSLECSignature(sigBytes, expectedByteLength)
         and decodeResult["children"][1]["class"] == 0 and decodeResult["children"][2]["class"] == 0
         and decodeResult["children"][1]["type"] == 2 and decodeResult["children"][2]["type"] == 2
     ) then
-        r = removeLeadingZeros(decodeResult["children"][1]["data"], expectedByteLength)
-        s = removeLeadingZeros(decodeResult["children"][2]["data"], expectedByteLength)
+        r = decodeResult["children"][1]["data"]
+        s = decodeResult["children"][2]["data"]
 
-        if (#r ~= expectedByteLength or #s ~= expectedByteLength) then
-            logger.debugLog("CryptoLite:getRandSFromOpenSSLECSignature unexpected r and s lengths")
-            r = nil
-            s = nil
+        if (#r ~= requiredByteLength) then
+            r = padToLength(r, requiredByteLength)
+        end
+        if (#s ~= requiredByteLength) then
+            s = padToLength(s, requiredByteLength)
         end
     else
         logger.debugLog("CryptoLite:getRandSFromOpenSSLECSignature unexpected decodeResult")
@@ -138,15 +156,15 @@ end
 
 --[[
     Constructs an OpenSSL EC signature in DER format from r and s components.
-    Pads r and s if needed (when leading byte > 127), encodes them as BER INTEGERs,
+    Removes leading zeros from r and s and then pads if needed (when leading byte > 127), encodes them as BER INTEGERs,
     and wraps them in a BER SEQUENCE. This reverses the steps of getRandSFromOpenSSLECSignature().
     @param r: The r component as a byte string
     @param s: The s component as a byte string
     @return: The DER-encoded EC signature byte string
 --]]
 local function getOpenSSLECSignatureFromRandS(r,s)
-    local finalR = padIfSigned(r)
-    local finalS = padIfSigned(s)
+    local finalR = padIfSigned(removeLeadingZeros(r))
+    local finalS = padIfSigned(removeLeadingZeros(s))
 
     local berR = ber.encode({ 
         type = ber.Types.INTEGER,
@@ -163,7 +181,6 @@ local function getOpenSSLECSignatureFromRandS(r,s)
 
     return berSeq
 end
-
 
 --[[
     Decodes an ASN.1 Object Identifier (OID) from its DER-encoded byte string representation
@@ -516,7 +533,6 @@ end
         - sharedSecret (string, required): The shared secret (Z) from key agreement
         - keyDataLen (number, required): The desired output key length in bits
         - algorithm (string, required): The algorithm identifier value as a string (e.g., "A256GCM")
-        - md(string, optional): The message digest to use when running the concatKDF process (optional, defaults to "sha256")
         - apu (base64url encoded string, optional): Agreement PartyUInfo
         - apv (base64url encoded string, optional): Agreement PartyVInfo
     @return derivedKey: The derived key material
@@ -526,7 +542,6 @@ function CryptoLite.concatKDF(options)
     local sharedSecret = options.sharedSecret
     local keyDataLen = options.keyDataLen
     local algorithm = options.algorithm
-    local md = options.md or "sha256"
     local apu = options.apu
     local apv = options.apv
 
@@ -568,21 +583,20 @@ function CryptoLite.concatKDF(options)
     
     -- KeyDataLen: 4 bytes, big-endian, in bits
     local keyDataLenField = string.pack(">I4", keyDataLen)
-
-    --logger.debugLog("CryptoLite.concatKDF: algorithmID: " .. logger.dumpAsString(algorithmID) .. " partyUInfo: " .. logger.dumpAsString(partyUInfo) .. " partyVInfo: " .. logger.dumpAsString(partyVInfo) .. " keyDataLen: " .. logger.dumpAsString(keyDataLenField))
     
     -- Concatenate all parts and then call openssl kdf with type SSKDF
     local otherInfo = algorithmID .. partyUInfo .. partyVInfo .. keyDataLenField    
-    --logger.debugLog("CryptoLite.concatKDF: otherInfo: " .. logger.dumpAsString(otherInfo))
+
     local params = {
         type = "SSKDF",
         secret = sharedSecret,
         outlen = keyDataLenBytes,
-        md = md,
+        -- for JWE, the hash algorithm used for concatKDF is always sha256 and does not change based on the curve
+        md = "sha256",
         info = otherInfo
     }
     local key = kdf.derive(params)
-    --logger.debugLog("CryptoLite.concatKDF returning key: " .. logger.dumpAsString(key))
+
     return key
 end
 
@@ -655,7 +669,7 @@ local function getSignatureAlgorithmConfig(algorithm)
         ["RS512"] = { type = "RSA", md = "sha512" },
         ["ES256"] = { type = "ES", md = "sha256", keyLenBits = 256 },
         ["ES384"] = { type = "ES", md = "sha384", keyLenBits = 384 },
-        ["ES512"] = { type = "ES", md = "sha512", keyLenBits = 521 }
+        ["ES512"] = { type = "ES", md = "sha512", keyLenBits = 528 }
     }
     
     local config = configs[algorithm]
@@ -701,7 +715,7 @@ function CryptoLite.determineECKeyProperties(pem)
         -- 1.3.132.0.34 secp384r1
         ["1.3.132.0.34"] = { keyLenBits = 384, curveName = "secp384r1" },
         -- 1.3.132.0.35 secp521r1
-        ["1.3.132.0.35"] = { keyLenBits = 521, curveName = "secp521r1" }
+        ["1.3.132.0.35"] = { keyLenBits = 528, curveName = "secp521r1" }
     }
 
     -- PEM can be either an EC private or public key PEM, or the PEM of the EC paramaters
@@ -859,8 +873,9 @@ local function signES(data, key, config)
 
     -- extract R, S without padding from the OpenSSL formatted signature
     -- then concatenate and base64urlencode to create JWT signature
-    local r, s = getRandSFromOpenSSLECSignature(sigBytes, (curveInfo.keyLenBits/8))
-
+    local requiredByteLength = (curveInfo.keyLenBits/8)
+    local r, s = getRandSFromOpenSSLECSignature(sigBytes, requiredByteLength)
+    
     return CryptoLite.base64URLEncode(r .. s)
 end
 
@@ -875,7 +890,7 @@ end
 local function verifyES(data, signature, key, config)
     -- Re-create OpenSSL compatible signature format from JWT signature format
     local sig = CryptoLite.base64URLDecode(signature)
-    local expectedSignatureLength = config.keyLenBits/8*2
+    local expectedSignatureLength = math.floor(config.keyLenBits/8*2)
     if (#sig ~= expectedSignatureLength) then
         error("CryptoLite.verifyES: invalid signature length")
     end
@@ -887,11 +902,20 @@ local function verifyES(data, signature, key, config)
     -- Load public key
     local pubKey = pkey.new(key)
     
-    -- Create SHA-256 digest
+    -- Create digest
     local md = digest.new(config.md)
     
     -- Verify signature over digest of the data
-    local valid = pubKey:verify(opensslSig, md:update(data))
+
+    local success, valid = pcall(
+        function() 
+            return pubKey:verify(opensslSig, md:update(data))
+        end
+    )
+    if not success then
+        logger.debugLog("CryptoLite.verifyES: verify failed with error: " .. logger.dumpAsString(valid))
+        valid = false
+    end
     
     return valid
 end
@@ -957,19 +981,39 @@ end
     ============================================================================
 --]]
 
+local function getRSAPadding(rsaPaddingStr)
+    local configs = {
+        ["RSA_PKCS1_PADDING"] = pkey.RSA_PKCS1_PADDING,
+        ["RSA_PKCS1_OAEP_PADDING"] = pkey.RSA_PKCS1_OAEP_PADDING
+    }
+    
+    local config = configs[rsaPaddingStr]
+    if not config then
+        local keyset = {}
+        for k,v in pairs(configs) do
+            table.insert(keyset, k)
+        end
+
+        error("CryptoLite.getRSAPadding unsupported padding: " .. rsaPaddingStr .. ". Supported alorithms: " .. cjson.encode(keyset))
+    end
+
+    return config
+end
+
+
 --[[
     Get algorithm configuration for supported symmetric encryption algorithms
     @param algorithm: Algorithm name per JWA (https://datatracker.ietf.org/doc/html/rfc7518) (e.g., "A256GCM", "A128CBC-HS256")
-    @return config: Table with keyLength, ivLength, tagLength, and isGCM fields
+    @return config: Table with keyLength, ivLength, tagLength, isGCM and isAES_CBC_HMAC_SHA2 fields
 --]]
 local function getContentEncryptionAlgorithmConfig(algorithm)
     local configs = {
-        ["A128GCM"] = { jwaName = "A128GCM", osslName = "aes-128-gcm", md = "sha256", keyLength = 16, ivLength = 12, tagLength = 16, isGCM = true },
-        ["A192GCM"] = { jwaName = "A192GCM", osslName = "aes-192-gcm", md = "sha256", keyLength = 24, ivLength = 12, tagLength = 16, isGCM = true },
-        ["A256GCM"] = { jwaName = "A256GCM", osslName = "aes-256-gcm", md = "sha256", keyLength = 32, ivLength = 12, tagLength = 16, isGCM = true },
-        ["A128CBC-HS256"] = { jwaName = "A128CBC-HS256", osslName = "aes-128-cbc", md = "sha256", keyLength = 16, ivLength = 16, tagLength = 0, isGCM = false },
-        ["A192CBC-HS384"] = { jwaName = "A192CBC-HS384", osslName = "aes-192-cbc", md = "sha384", keyLength = 24, ivLength = 16, tagLength = 0, isGCM = false },
-        ["A256CBC-HS512"] = { jwaName = "A256CBC-HS512", osslName = "aes-256-cbc", md = "sha512", keyLength = 32, ivLength = 16, tagLength = 0, isGCM = false }
+        ["A128GCM"] = { jwaName = "A128GCM", osslName = "aes-128-gcm", md = "sha256", keyLength = 16, ivLength = 12, tagLength = 16, isGCM = true, isAES_CBC_HMAC_SHA2 = false },
+        ["A192GCM"] = { jwaName = "A192GCM", osslName = "aes-192-gcm", md = "sha256", keyLength = 24, ivLength = 12, tagLength = 16, isGCM = true, isAES_CBC_HMAC_SHA2 = false },
+        ["A256GCM"] = { jwaName = "A256GCM", osslName = "aes-256-gcm", md = "sha256", keyLength = 32, ivLength = 12, tagLength = 16, isGCM = true, isAES_CBC_HMAC_SHA2 = false },
+        ["A128CBC-HS256"] = { jwaName = "A128CBC-HS256", osslName = "aes-128-cbc", md = "sha256", keyLength = 32, ivLength = 16, tagLength = 16, isGCM = false, isAES_CBC_HMAC_SHA2 = true },
+        ["A192CBC-HS384"] = { jwaName = "A192CBC-HS384", osslName = "aes-192-cbc", md = "sha384", keyLength = 48, ivLength = 16, tagLength = 24, isGCM = false, isAES_CBC_HMAC_SHA2 = true },
+        ["A256CBC-HS512"] = { jwaName = "A256CBC-HS512", osslName = "aes-256-cbc", md = "sha512", keyLength = 64, ivLength = 16, tagLength = 32, isGCM = false, isAES_CBC_HMAC_SHA2 = true }
     }
     
     local config = configs[algorithm]
@@ -1014,8 +1058,8 @@ end
         - key (string, required): Encryption key. If less than required key length, will be derived using PBKDF2 with salt
         - contentEncryptionAlgorithmConfig (table, required): Config from getContentEncryptionAlgorithmConfig
         - iv (string, optional): IV bytes. Will be generated if not supplied
-        - additionalAuthenticatedData (string, optional): AAD for GCM modes
-    @return result: Table with salt, iv, tag (GCM only), ciphertext fields as binary strings
+        - additionalAuthenticatedData (string, optional): Additional authenticated data
+    @return result: Table with salt (GCM only), iv, tag, ciphertext fields as binary strings
 --]]
 local function encryptSymmetricEx(options)
 
@@ -1030,14 +1074,34 @@ local function encryptSymmetricEx(options)
 
     -- Use provided or generate random IV
     local ivBytes = options.iv or rand.bytes(contentEncryptionAlgorithmConfig.ivLength)
+
+    -- If this is a AES_CBC_HMAC_SHA2 cipher, the key length must be correct
+    if contentEncryptionAlgorithmConfig.isAES_CBC_HMAC_SHA2 then
+        if #key ~= contentEncryptionAlgorithmConfig.keyLength then
+            error("CryptoLite.encryptSymmetricEx: key length must be " .. tostring(contentEncryptionAlgorithmConfig.keyLength) .. " for AES_CBC_HMAC_SHA2 cipher")
+        end
+    end
     
-    -- Derive a proper key if needed
-    local encKey, salt
-    if #key < contentEncryptionAlgorithmConfig.keyLength then
-        encKey, salt = deriveKey(key, nil, contentEncryptionAlgorithmConfig.keyLength)
+    local encKey, macKey, salt
+    if (contentEncryptionAlgorithmConfig.isGCM) then
+        -- Derive a proper key if needed (GCM only)
+        if #key < contentEncryptionAlgorithmConfig.keyLength then
+            encKey, salt = deriveKey(key, nil, contentEncryptionAlgorithmConfig.keyLength)
+        else
+            encKey = key:sub(1, contentEncryptionAlgorithmConfig.keyLength)
+            salt = rand.bytes(SALT_LENGTH)
+        end
+    elseif (contentEncryptionAlgorithmConfig.isAES_CBC_HMAC_SHA2) then
+        -- Reference: https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
+
+        -- macKey is the first half of the key
+        local halfLen = math.ceil(#key/2)
+        macKey = key:sub(1, halfLen)
+        -- encKey is the second half
+        encKey = key:sub(halfLen + 1, -1)
     else
-        encKey = key:sub(1, contentEncryptionAlgorithmConfig.keyLength)
-        salt = rand.bytes(SALT_LENGTH)
+        -- impossible
+        error("CryptoLite.encryptSymmetricEx: contentEncryptionAlgorithm was neither GCM nor AES_CBC_HMAC_SHA2")
     end
         
     -- Create cipher
@@ -1057,10 +1121,30 @@ local function encryptSymmetricEx(options)
     end
     local ciphertext = c:final(plaintext)
     
-    -- Get tag for GCM modes
     local tag = nil
-    if contentEncryptionAlgorithmConfig.isGCM then
+    if (contentEncryptionAlgorithmConfig.isGCM) then
+        -- Get from cipher tag for GCM modes
         tag = c:getTag(contentEncryptionAlgorithmConfig.tagLength)
+    elseif (contentEncryptionAlgorithmConfig.isAES_CBC_HMAC_SHA2) then
+        -- Reference: https://datatracker.ietf.org/doc/html/rfc7518#section-5.2.2.1
+        -- compose tag
+        local aadBits = 0
+        if (additionalAuthenticatedData ~= nil) then
+            aadBits = #additionalAuthenticatedData * 8
+        end
+        -- pack length of AAD in bits into an unsigned 64 bit big-endian integer octet string called AL
+        local aadLength = string.pack(">J", aadBits)
+        local hashData = 
+            (additionalAuthenticatedData ~= nil and additionalAuthenticatedData or "") .. 
+            ivBytes ..
+            ciphertext ..
+            aadLength
+        local h = hmac.new(macKey, contentEncryptionAlgorithmConfig.md)
+        local signature = h:final(hashData)
+        tag = string.sub(signature, 1, contentEncryptionAlgorithmConfig.tagLength)
+    else
+        -- impossible
+        error("CryptoLite.encryptSymmetricEx: contentEncryptionAlgorithm was neither GCM nor AES_CBC_HMAC_SHA2")
     end
 
     local result = {
@@ -1077,7 +1161,7 @@ end
 --[[
     Symmetric Decryption using configurable algorithm
     
-    This function decrypts ciphertext using symmetric decryption algorithms (AES-GCM or AES-CBC).
+    This function decrypts ciphertext using symmetric decryption algorithms (AES-GCM or AES-CBC-HMAC-SHA2).
     If the key was derived during encryption (shorter than required), the same salt must be provided.
     
     @param options: Table with the following fields:
@@ -1085,9 +1169,9 @@ end
         - key (string, required): Decryption key. If less than required key length, will be derived using PBKDF2 with salt
         - iv (string, required): Initialization vector
         - salt (string, optional): Salt used during key derivation. Required if key was derived during encryption
-        - tag (string, optional): Authentication tag. Required for GCM modes
+        - tag (string, required): Authentication tag.
         - contentEncryptionAlgorithmConfig (table, required): Config from getContentEncryptionAlgorithmConfig
-        - additionalAuthenticatedData (string, optional): AAD for GCM modes
+        - additionalAuthenticatedData (string, optional): Additional authenticated data
     @return plaintext: The decrypted string
 --]]
 local function decryptSymmetricEx(options)
@@ -1100,24 +1184,63 @@ local function decryptSymmetricEx(options)
     local additionalAuthenticatedData = options.additionalAuthenticatedData
     local contentEncryptionAlgorithmConfig = options.contentEncryptionAlgorithmConfig
 
-    if not ciphertext or not key or not iv or not contentEncryptionAlgorithmConfig then
-        error("CryptoLite.decryptSymmetricEx: ciphertext, key, iv, and algorithm configuration are required")
+    if not ciphertext or not key or not iv or not tag or not contentEncryptionAlgorithmConfig then
+        error("CryptoLite.decryptSymmetricEx: ciphertext, key, iv, tag and algorithm configuration are required")
     end
-        
-    -- Check tag requirement for GCM modes
-    if contentEncryptionAlgorithmConfig.isGCM and not tag then
-        error("CryptoLite.decryptSymmetricEx: tag is required for GCM modes")
-    end
-        
-    -- Derive the same key
-    local encKey
-    if #key < contentEncryptionAlgorithmConfig.keyLength then
-        if not salt then
-            error("CryptoLite.decryptSymmetricEx: salt is required based on key length")
+
+    -- If this is a AES_CBC_HMAC_SHA2 cipher, the key length must be correct
+    if contentEncryptionAlgorithmConfig.isAES_CBC_HMAC_SHA2 then
+        if #key ~= contentEncryptionAlgorithmConfig.keyLength then
+            error("CryptoLite.decryptSymmetricEx: key length must be " .. tostring(contentEncryptionAlgorithmConfig.keyLength) .. " for AES_CBC_HMAC_SHA2 cipher")
         end
-        encKey = deriveKey(key, salt, contentEncryptionAlgorithmConfig.keyLength)
+    end
+                
+    -- Derive the same key
+    local encKey, macKey
+    if (contentEncryptionAlgorithmConfig.isGCM) then
+        if #key < contentEncryptionAlgorithmConfig.keyLength then
+            if not salt then
+                error("CryptoLite.decryptSymmetricEx: salt is required based on key length")
+            end
+            encKey = deriveKey(key, salt, contentEncryptionAlgorithmConfig.keyLength)
+        else
+            encKey = key:sub(1, contentEncryptionAlgorithmConfig.keyLength)
+        end
+    elseif (contentEncryptionAlgorithmConfig.isAES_CBC_HMAC_SHA2) then
+        -- Reference: https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
+
+        -- macKey is the first half of the key
+        local halfLen = math.ceil(#key/2)
+        macKey = key:sub(1, halfLen)
+        -- encKey is the second half
+        encKey = key:sub(halfLen + 1, -1)
     else
-        encKey = key:sub(1, contentEncryptionAlgorithmConfig.keyLength)
+        -- impossible
+        error("CryptoLite.decryptSymmetricEx: contentEncryptionAlgorithm was neither GCM nor AES_CBC_HMAC_SHA2")
+    end
+
+    -- if this is an AES_CBC_HMAC_SHA2 cipher, check integrity and authenticity of aad and ciphertext
+    -- otherwise for GCM this will be done by passing the tag and aad to the cipher
+    if (contentEncryptionAlgorithmConfig.isAES_CBC_HMAC_SHA2) then
+        -- Reference: https://datatracker.ietf.org/doc/html/rfc7518#section-5.2.2.2
+        -- compose tag
+        local aadBits = 0
+        if (additionalAuthenticatedData ~= nil) then
+            aadBits = #additionalAuthenticatedData * 8
+        end
+        -- pack length of AAD in bits into an unsigned 64 bit big-endian integer octet string called AL
+        local aadLength = string.pack(">J", aadBits)
+        local hashData = 
+            (additionalAuthenticatedData ~= nil and additionalAuthenticatedData or "") .. 
+            iv ..
+            ciphertext ..
+            aadLength
+        local h = hmac.new(macKey, contentEncryptionAlgorithmConfig.md)
+        local signature = h:final(hashData)
+        local computedTag = string.sub(signature, 1, contentEncryptionAlgorithmConfig.tagLength)
+        if (computedTag ~= tag) then
+            error("CryptoLite.decryptSymmetricEx: computed tag ("..logger.dumpAsString(computedTag)..") does not match expected tag ("..logger.dumpAsString(tag)..")")
+        end
     end
     
     -- Create cipher
@@ -1142,6 +1265,10 @@ local function decryptSymmetricEx(options)
     
     local plaintext = c:final(ciphertext)
 
+    if ( not plaintext) then
+        error("CryptoLite.decryptSymmetricEx: decrytion failed for cipher: " .. contentEncryptionAlgorithmConfig.osslName)
+    end
+
     return plaintext
 end
 
@@ -1163,6 +1290,7 @@ end
 --]]
 local function getEncryptionKeyAgreementAlgorithmConfig(algorithm)
     local configs = {
+        ["RSA1_5"] = { type = "RSA", rsaPadding = pkey.RSA_PKCS1_PADDING },
         ["RSA-OAEP"] = { type = "RSA", rsaPadding = pkey.RSA_PKCS1_OAEP_PADDING },
 
         -- This is not supported because luaossl does not yet expose key a means to select
@@ -1422,7 +1550,6 @@ local function encryptECDHEx(options)
             sharedSecret = sharedSecret,
             keyDataLen = (contentEncryptionAlgorithmConfig.keyLength * 8), -- in bits
             algorithm = contentEncryptionAlgorithmConfig.jwaName,
-            md = contentEncryptionAlgorithmConfig.md,
             apu = options.apu,
             apv = options.apv
         })
@@ -1433,7 +1560,7 @@ local function encryptECDHEx(options)
         -- and the encrypted cek (I believe) would need to be returned in result.cek 
         if (encryptionKeyAgreementConfig.keyWrapAlg ~= nil) then
             -- generate a random cek, and wrap with sharedKey to produce encyptedKey
-            cek = CryptoLite.randomBytes(contentEncryptionAlgorithmConfig.keyLength)
+            --cek = CryptoLite.randomBytes(contentEncryptionAlgorithmConfig.keyLength)
             
             -- TODO - figure out if luaossl can be extended to support AES Key Wrapping
             error("CryptoLite.encryptECDHEx: key wrapping not yet supported")
@@ -1515,7 +1642,11 @@ local function decryptECDHEx(options)
 
     -- Load private key and ephemeral public key
     local recipientPrivateKey = pkey.new(privateKeyPEM)
+
+    local curveInfo = CryptoLite.determineECKeyProperties(ephemeralKeyPublicPEM)
     local ephemeralPublicKey = pkey.new(ephemeralKeyPublicPEM)
+    -- trying this
+    --local ephemeralPublicKey = pkey.new(ephemeralKeyPublicPEM, "pem", "public", curveInfo.curveName)
     
     -- Perform ECDH to derive shared secret
     -- this requires updated version of luaossl that contains https://github.com/wahern/luaossl/pull/214
@@ -1540,7 +1671,6 @@ local function decryptECDHEx(options)
             sharedSecret = sharedSecret,
             keyDataLen = (contentEncryptionAlgorithmConfig.keyLength * 8), -- in bits
             algorithm = contentEncryptionAlgorithmConfig.jwaName,
-            md = contentEncryptionAlgorithmConfig.md,
             apu = options.apu,
             apv = options.apv
         })
@@ -1557,11 +1687,8 @@ local function decryptECDHEx(options)
             -- Direct mode is being used, the sharedKey is the cek
             cek = sharedKey
         end
-
-        --logger.debugLog("CryptoLite.decryptECDHEx using concatKDF(sharedSecret) as cek: " .. logger.dumpAsString(cek))
     else
         -- invalid kdf
-        logger.debugLog("CryptoLite.decryptECDHEx invalid kdf supplied: " .. kdf)
         error("CryptoLite.decryptECDHEx: invalid kdf supplied: " .. kdf)
     end
 
@@ -1978,19 +2105,49 @@ function CryptoLite.decryptRSA(encrypted, privateKeyPEM)
 end
 
 --[[
+    Encrypts plaintext using raw RSA with OAEP padding with the provided public key.
+    This is a low-level function that performs a single RSA encryption operation without any
+    envelope or encoding.
+    @param plaintext: The plaintext as a binary string
+    @param publicKeyPEM: RSA public key in PEM format
+    @param rsaPaddingStr: The RSA padding algorithm to use. Should be one of: "RSA_PKCS1_PADDING", "RSA_PKCS1_OAEP_PADDING"
+    @return: The raw RSA-encrypted ciphertext bytes (binary string)
+--]]
+function CryptoLite.encryptRSARaw(plaintext, publicKeyPEM, rsaPaddingStr)
+
+    if not plaintext or not publicKeyPEM or not rsaPaddingStr then
+        error("CryptoLite.encryptRSARaw: plaintext, publicKeyPEM and rsaPaddingStr are required")
+    end
+
+    -- Load private key
+    local pubKey = pkey.new(publicKeyPEM)
+    
+    -- RSA encryption
+    local ciphertext = pubKey:encrypt(plaintext, { rsaPadding = getRSAPadding(rsaPaddingStr) })
+    
+    return ciphertext    
+end
+
+
+--[[
     Decrypts raw RSA-encrypted ciphertext using OAEP padding with the provided private key.
     This is a low-level function that performs a single RSA decryption operation without any
     envelope or encoding — the ciphertext must be raw RSA-encrypted bytes.
     @param ciphertext: The raw RSA-encrypted ciphertext bytes (binary string)
     @param privateKeyPEM: RSA private key in PEM format
+    @param rsaPaddingStr: The RSA padding algorithm to use. Should be one of: "RSA_PKCS1_PADDING", "RSA_PKCS1_OAEP_PADDING"
     @return: The decrypted plaintext as a binary string
 --]]
-function CryptoLite.decryptRSARaw(ciphertext, privateKeyPEM)
+function CryptoLite.decryptRSARaw(ciphertext, privateKeyPEM, rsaPaddingStr)
+    if not ciphertext or not privateKeyPEM or not rsaPaddingStr then
+        error("CryptoLite.decryptRSARaw: ciphertext, privateKeyPEM and rsaPaddingStr are required")
+    end
+
     -- Load private key
     local privKey = pkey.new(privateKeyPEM)
     
     -- RSA decryption
-    local plaintext = privKey:decrypt(ciphertext, { rsaPadding = pkey.RSA_PKCS1_OAEP_PADDING })
+    local plaintext = privKey:decrypt(ciphertext, { rsaPadding = getRSAPadding(rsaPaddingStr) })
     
     return plaintext    
 end
@@ -2988,5 +3145,338 @@ function CryptoLite.PEMtoJWK(pem)
     end
 end
 
+
+--[[
+    ============================================================================
+    JWE encryption and decryption utilities
+    ============================================================================
+--]]
+
+
+--[[
+    Generate an encrypted JWE string
+    
+    @param options: Table with the following fields:
+        - plaintext (string, required): plaintext string to encrypt
+        - encryptionAlgorithm (string, required): "RSA-OAEP", "ECDH-ES", or "dir"
+        - encryptionKey (string, required): Public key PEM (RSA/EC) or shared secret (dir)
+        - encryptionMethod (string, requried): e.g. "A256GCM" - must be a supported content encryption algorithm from CryptoLite
+        - kid (string, optional): Key ID for JWE header
+        - cty (string, options): cty to add to the JWE header if provided
+        - apu (string, options): apu to add to the JWE header if provided
+        - apv (string, options): apv to add to the JWE header if provided
+        - zip (boolean, optional): whether or not to use zip default compression of the plaintext prior to encryption. Default: false
+    
+    @return jwe: Encrypted JWT string or throws error
+    @return error: Error message if generation failed
+    
+    Example:
+        local jwe, err = CryptoLite.generateJWE({
+            plaintext = "Test string"
+            encryptionAlgorithm = "RSA-OAEP",
+            encryptionKey = recipientPublicKeyPEM,
+            encryptionMethod = "A256GCM",
+            zip = true
+        })
+--]]
+function CryptoLite.generateJWE(options)
+    if not options then
+        error("CryptoLite.generateJWE: options are required")
+    end
+
+    if not options.plaintext then
+        logger.debugLog("CryptoLite.generateJWE options: " .. logger.dumpAsString(options))
+        error("CryptoLite.generateJWE: plaintext is required")
+    end
+
+    if not options.encryptionAlgorithm then
+        error("CryptoLite.generateJWE: encryptionAlgorithm is required")
+    end
+    
+    if not options.encryptionKey then
+        error("CryptoLite.generateJWE: encryptionKey is required")
+    end
+    
+    local encAlg = options.encryptionAlgorithm
+    
+    -- Validate encryption algorithm
+    if not CryptoLite.isSupportedEncryptionKeyAgreementAlgorithm(encAlg) then
+        error("CryptoLite.generateJWE: unsupported encryption algorithm: " .. logger.dumpAsString(encAlg))
+    end
+
+        -- Validate encryption method
+    local encMethod = options.encryptionMethod
+    if not CryptoLite.isSupportedContentEncryptionAlgorithm(encMethod) then
+        error("CryptoLite.generateJWE: unsupported encryption method: " .. logger.dumpAsString(encMethod))
+    end
+    
+    -- Step 1: Encrypt the plaintext
+    local success, encrypted, textToEncrypt
+
+    -- generate JWE header - required now to figure out additional authentication data
+    -- note this does get updated to add the epk when using ECDH-ES as the encryption algorithm
+    local jweHeader = {
+        alg = encAlg,
+        enc = encMethod,
+        typ = "JWE"
+    }
+    if options.cty then
+        jweHeader.cty = options.cty
+    end
+    if options.kid then
+        jweHeader.kid = options.kid
+    end
+    if options.apu then
+        jweHeader.apu = options.apu
+    end
+    if options.apv then
+        jweHeader.apv = options.apv
+    end
+    if options.zip then
+        jweHeader.zip = "DEF"
+        textToEncrypt = libDeflate:CompressDeflate(jwt)
+    else
+        textToEncrypt = options.plaintext
+    end
+    
+    local success, jweHeaderStr = pcall(cjson.encode, jweHeader)
+    if not success then
+        error("CryptoLite.generateJWE: failed to encode JWE header: " .. tostring(jweHeaderStr))
+    end
+    local jweHeaderB64U = CryptoLite.base64URLEncode(jweHeaderStr)
+
+    if encAlg == "dir" then
+        -- Direct encryption with shared secret - not yet supported
+        error("CryptoLite.generateJWE: direct encryption not supported")
+    else
+        -- must be an RSA or EC based algorithm
+
+        --
+        -- If ECDH based algorithm, generate the ephemeral key first, since we need to create the JWE 
+        -- header with the public key in it this should be on the same curve as recipientPublicKeyPEM
+        --
+        local ephemeralKey = nil
+        if CryptoLite.isECDHEncryptionKeyAgreement(encAlg) then
+            -- Get the curve name from the recipient's key
+            local curveInfo = CryptoLite.determineECKeyProperties(options.encryptionKey)
+        
+            -- Generate ephemeral key pair on the same curve
+            local genParams = {
+                type = "EC",
+                curve = curveInfo.curveName
+            }
+
+            ephemeralKey = pkey.new(genParams)
+
+            -- get the JWK format of the public key of the ephemeralKey to form part of the JWE header
+            local epk = CryptoLite.PEMtoJWK(ephemeralKey:toPEM("public"))
+            --logger.debugLog("CryptoLite.generateJWE epk: " .. logger.dumpAsString(epk))
+
+            -- update the JWE header and its base64-url encoded representation to include the epk
+            jweHeader.epk = epk
+            jweHeaderB64U = CryptoLite.base64URLEncode(cjson.encode(jweHeader))
+        end
+
+        -- Encrypt the textToEncrypt with requested encryption key agreement and content encryption algorithm
+        --logger.debugLog("CryptoLite.generateJWE: About to call CryptoLite.encrypt: plaintext: " .. logger.dumpAsString(textToEncrypt) .. " key: " .. logger.dumpAsString(options.encryptionKey))
+
+        local encryptResults = CryptoLite.encrypt({
+            plaintext = textToEncrypt,
+            key = options.encryptionKey,
+            encryptionKeyAgreement = encAlg,
+            contentEncryptionAlgorithm = encMethod,
+            apu = jweHeader.apu,
+            apv = jweHeader.apv,
+            ephemeralKey = ephemeralKey,
+            additionalAuthenticatedData = jweHeaderB64U
+        })
+
+        -- the encryptedKey will be empty for ECDH-ES as there is no cek keywrap
+        local encryptedKeyB64U = ""
+        if (encryptResults.encryptedKey) then
+            encryptedKeyB64U = CryptoLite.base64URLEncode(encryptResults.encryptedKey)
+        end
+
+        -- put the bits together
+        encrypted = encryptedKeyB64U .. "." .. CryptoLite.base64URLEncode(encryptResults.iv) .. "." .. CryptoLite.base64URLEncode(encryptResults.ciphertext) .. "." .. CryptoLite.base64URLEncode(encryptResults.tag)        
+    end
+    
+    -- Step 2: Create JWE structure
+    -- Format: {base64url(JWE_header)}.{encrypted_jwt}
+    
+    -- Return JWE format
+    local result = jweHeaderB64U .. "." .. encrypted
+    --logger.debugLog("CryptoLite.generateJWE returning: " .. result)
+    return result
+end
+
+--[[
+    Decrypt an encrypted JWE string
+    
+    @param options: Table with the following fields:
+        - jwe (string, required): The JWE string to decrypt
+        - encryptionAlgorithm (string, required): Expected encryption algorithm
+        - decryptionKey (string, required): Private key PEM (RSA/EC) or shared secret (dir)
+        - encryptionMethod (string, required): Expected encryption method - "A256GCM"
+    
+    @return result: Table with jweHeader, plaintext or throws an error on failure with an error message
+    
+    Example:
+        local result = CryptoLite.decryptJWE({
+            jwe = jweString,
+            encryptionAlgorithm = "RSA-OAEP",
+            decryptionKey = privateKeyPEM,
+            encryptionMethod = "A256GCM"
+        })
+--]]
+function CryptoLite.decryptJWE(options)
+
+    if not options or not options.jwe then
+        error("CryptoLite.decryptJWE: jwe is required")
+    end
+    
+    -- Validate encryption algorithm
+    local encAlg = options.encryptionAlgorithm
+    if not CryptoLite.isSupportedEncryptionKeyAgreementAlgorithm(encAlg) then
+        error("CryptoLite.decryptJWE: unsupported encryption algorithm: " .. logger.dumpAsString(encAlg))
+    end
+
+        -- Validate encryption method
+    local encMethod = options.encryptionMethod
+    if not CryptoLite.isSupportedContentEncryptionAlgorithm(encMethod) then
+        error("CryptoLite.decryptJWE: unsupported encryption method: " .. logger.dumpAsString(encMethod))
+    end
+    
+    if not options.decryptionKey then
+        error("CryptoLite.decryptJWE: decryptionKey is required")
+    end
+    
+    local jwe = options.jwe
+
+    -- Step 1: Parse JWE structure
+
+    local parts = {}
+    local dotCount = 0
+    for i = 1, #jwe do
+        if jwe:sub(i, i) == "." then
+            dotCount = dotCount + 1
+        end
+    end
+    
+    -- JWE should have exactly 4 dots (5 parts: header.encryptedKey.iv.ciphertext.tag)
+    if dotCount ~= 4 then
+        error("CryptoLite.decryptJWE: invalid JWE format: expected 4 dots, got " .. dotCount)
+    end
+    
+    -- Split by dots, preserving empty parts
+    local startPos = 1
+    for i = 1, #jwe do
+        if jwe:sub(i, i) == "." then
+            table.insert(parts, jwe:sub(startPos, i - 1))
+            startPos = i + 1
+        end
+    end
+    -- Add the last part
+    table.insert(parts, jwe:sub(startPos))
+
+    
+    local jweHeaderEncoded = parts[1]
+    local encryptedKeyEncoded = parts[2]
+    local ivEncoded = parts[3]
+    local encryptedJWSEncoded = parts[4]
+    local tagEncoded = parts[5]
+    
+    -- Decode components
+    local success, jweHeaderJSON = pcall(CryptoLite.base64URLDecode, jweHeaderEncoded)
+    if not success then
+        error("CryptoLite.decryptJWE: failed to decode JWE header: " .. tostring(jweHeaderJSON))
+    end
+    local success, encryptedKey = pcall(CryptoLite.base64URLDecode, encryptedKeyEncoded)
+    if not success then
+        error("CryptoLite.decryptJWE: failed to decode encryptedKey: " .. tostring(encryptedKey))
+    end
+    local success, iv = pcall(CryptoLite.base64URLDecode, ivEncoded)
+    if not success then
+        error("CryptoLite.decryptJWE: failed to decode iv: " .. tostring(iv))
+    end
+    local success, encryptedJWS = pcall(CryptoLite.base64URLDecode, encryptedJWSEncoded)
+    if not success then
+        error("CryptoLite.decryptJWE: failed to decode encryptedJWS: " .. tostring(encryptedJWS))
+    end
+    local success, tag = pcall(CryptoLite.base64URLDecode, tagEncoded)
+    if not success then
+        error("CryptoLite.decryptJWE: failed to decode tag: " .. tostring(tag))
+    end
+
+    -- process JWE header
+    local success, jweHeader = pcall(cjson.decode, jweHeaderJSON)
+    if not success then
+        error("CryptoLite.decryptJWE: failed to parse JWE header JSON: " .. tostring(jweHeader))
+    end
+    
+    -- Verify encryption algorithm matches
+    if jweHeader.alg ~= encAlg then
+        error("CryptoLite.decryptJWE: encryption algorithm mismatch: expected " .. encAlg .. ", got " .. jweHeader.alg)
+    end
+
+    -- Verify encryption method matches
+    if jweHeader.enc ~= encMethod then
+        error("CryptoLite.decryptJWE: encryption method mismatch: expected " .. encMethod .. ", got " .. jweHeader.enc)
+    end
+    
+    -- Step 2: Decrypt the JWE
+    local plaintext
+    if encAlg == "dir" then
+        error("CryptoLite.decryptJWE: Direct decryption not supported")
+    else
+        -- must be an RS or EC algorithm - decrypt the JWE
+
+        -- if this is an ECDH algorithm, then we need the ephemeralPublicKey information to decrypt
+        local ephemeralKeyPublicPEM = nil
+        if CryptoLite.isECDHEncryptionKeyAgreement(encAlg) then
+            -- extract the epk from the JWE header
+            if not jweHeader.epk then
+                return false, nil, nil, "CryptoLite.decryptJWE: JWE header missing epk"
+            end
+            -- and convert PEM
+            local success, epkPEM = pcall(CryptoLite.jwkToPEM, jweHeader.epk)
+            if not success then
+                return false, nil, nil, "CryptoLite.decryptJWE: Invalid epk: " .. tostring(epkPEM)
+            end
+            ephemeralKeyPublicPEM = epkPEM
+        end
+
+        -- perform decryption of encryptedJWS to plaintext
+        local decryptOptions = {
+            ciphertext = encryptedJWS,
+            encryptedKey = encryptedKey,
+            key = options.decryptionKey,
+            encryptionKeyAgreement = encAlg,
+            contentEncryptionAlgorithm = encMethod,
+            iv = iv,
+            tag = tag,
+            ephemeralKeyPublicPEM = ephemeralKeyPublicPEM,
+            additionalAuthenticatedData = jweHeaderEncoded
+        }
+        local success, decryptedJWS = pcall(CryptoLite.decrypt, decryptOptions)
+        if not success then
+            error("CryptoLite.decryptJWE: Decryption of JWS to plaintext failed: " .. tostring(decryptedJWS))
+        end
+        plaintext = decryptedJWS
+    end
+
+    -- Step 3: If the plaintext is zip'd, deflate it
+    if jweHeader.zip == "DEF" then
+        --logger.debugLog("JWTUtils.validateEncrypted: Deflating plaintext")
+        plaintext = libDeflate:DecompressDeflate(plaintext)
+    end
+    
+    -- Step 4: Compose the results
+    local decryptResults = {
+        jweHeader = jweHeader,
+        plaintext = plaintext
+    }
+    return decryptResults
+end
 
 return CryptoLite

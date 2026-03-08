@@ -259,7 +259,6 @@ end
         })
 --]]
 function JWTUtils.validate(options)
-
     -- Validate required parameters
     if not options or not options.jwt then
         error("JWTUtils.validate: jwt is required")
@@ -489,6 +488,8 @@ end
         - encryptionAlgorithm (string, required): "RSA-OAEP", "ECDH-ES", or "dir"
         - encryptionKey (string, required): Public key PEM (RSA/EC) or shared secret (dir)
         - encryptionMethod (string, requried): e.g. "A256GCM" - must be a supported content encryption algorithm from CryptoLite
+        - apu (string, options): apu to add to the JWE header if provided
+        - apv (string, options): apv to add to the JWE header if provided
         - kid (string, optional): Key ID for JWE header
         - zip (boolean, optional): whether or not to use zip default compression of the plaintext prior to encryption. Default: false
 
@@ -573,6 +574,12 @@ function JWTUtils.generateEncrypted(options)
     if options.kid then
         jweHeader.kid = options.kid
     end
+    if options.apu then
+        jweHeader.apu = options.apu
+    end
+    if options.apv then
+        jweHeader.apv = options.apv
+    end
     if options.zip then
         jweHeader.zip = "DEF"
         plaintext = libDeflate:CompressDeflate(jwt)
@@ -613,7 +620,7 @@ function JWTUtils.generateEncrypted(options)
             local epk = cryptoLite.PEMtoJWK(ephemeralKey:toPEM("public"))
             --logger.debugLog("JWTUtils.generateEncrypted epk: " .. logger.dumpAsString(epk))
 
-            -- update the JWE header and its base64-url encoded  representation to include the epk
+            -- update the JWE header and its base64-url encoded representation to include the epk
             jweHeader.epk = epk
             jweHeaderB64U = cryptoLite.base64URLEncode(cjson.encode(jweHeader))
         end
@@ -656,7 +663,7 @@ end
     
     @param options: Table with the following fields:
         - jwe (string, required): The JWE string to decrypt and validate
-        - encryptionAlgorithm (string, required): Expected encryption algorithm - currently only "RSA-OAEP" is suported
+        - encryptionAlgorithm (string, required): Expected encryption algorithm - currently "RSA-OAEP" and "ECDH-ES" are suported
         - decryptionKey (string, required): Private key PEM (RSA/EC) or shared secret (dir)
         - encryptionMethod (string, required): Expected encryption method - "A256GCM"
         - signatureAlgorithm (string, required): Expected signature algorithm for inner JWT
@@ -815,7 +822,7 @@ function JWTUtils.validateEncrypted(options)
         if not success then
             error("JWTUtils.validateEncrypted: Decryption of JWS to JWT failed: " .. tostring(decryptedJWT))
         else
-            --logger.debugLog("Decrypted JWS to JWT: " .. logger.dumpAsString(jwt))
+            --logger.debugLog("Decrypted JWS to JWT: " .. logger.dumpAsString(decryptedJWT))
         end
         jwt = decryptedJWT
     end
@@ -829,7 +836,6 @@ function JWTUtils.validateEncrypted(options)
     -- make sure there is no leading or trailing non-b64u valid characters around the JWT before sending for signature validation
     -- this caters for a situation where the string that was encrypted may have had extra whitespace or a newline after it, etc
     jwt = trimb64u(jwt)
-    --logger.debugLog("JWTUtils.validateEncrypted decrypted JWT: " .. logger.dumpAsString(jwt))
     
     -- Step 4: Validate the decrypted JWT
     local validationResults = JWTUtils.validate({
