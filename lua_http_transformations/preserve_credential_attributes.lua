@@ -50,9 +50,9 @@ local logger = require "LoggingUtils"
 local cryptoLite = require "CryptoLite"
 
 -- list of attribute names that we want to preserve through stepup operations
--- There is no significance to the default one "method" - it's just a placehoder 
+-- There is no significance to these defaults - it's just a placehoder 
 -- that I was testing with, so delete/replace it with whatever attributes you care about.
-local ATTR_NAMES = { "method" }
+local ATTR_NAMES = { "method", "serial-number" }
 
 -- MERGE_STRATEGY determines whether to add, keep, or replace an attribute 
 -- in the memory cache with any that appears in "current" credential after 
