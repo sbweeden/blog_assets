@@ -1,33 +1,45 @@
 --[[
         A transformation that unpacks an X509 certificate for the purposes of it being used as a certificate EAI
 
+        Configuration based on advice in https://www.ibm.com/docs/en/sva/11.0.2?topic=scenarios-creating-lua-client-certificate-authentication-module
+
         Activated in Reverse Proxy config with:
 
         ================
         [http-transformations]
         certeai = certeai.lua
 
-        [http-transformations:certeai]
-        request-match = request:POST /certeai *
-        =============
-		
-		You would also need to set up certificate EAI to point at /certeai, and of course have something configured for certificate authentication.
 
+        # You MUST also attach an unauth-allowed ACL to /certeai
+        # The postazn stage is required so that the Lua code can set authentication data
+        [http-transformations:certeai]
+        request-match = postazn:GET /certeai*
 
         [certificate]
         accept-client-certs = something_other_than_never
 
-        # This will be intercepted by a Lua HTTP transformation
-        eai-uri = /certeai
+        # We will be using a Lua transformation for certificate EAI
+        eai-uri = %lua-eai%
 
-        # There can be other eai-data, but I prefer to have the whole cert and unpack it myself in Lua
-        eai-data = Base64Certificate:cert
+        [acnt-mgt]
+        enable-local-response-redirect = yes
+
+        [local-response-redirect]
+        local-response-redirect-uri = [login] /certeai
+
+        [eai]
+        eai-auth = https
+
+        [eai-trigger-urls]
+        trigger = /certeai*
+
+
 
         ======================
 
-        Typically you would also find level=ssl somewhere in the [authentication-levels] stanza.
+        Typically you would also find level=ext-auth-interface somewhere in the [authentication-levels] stanza.
 
-        
+        Remember: You MUST also attach an unauth-allowed ACL to /certeai
 		
 		For information on the openssl.x509 APIs, consult the luaossl PDF found here: 
 			https://www.25thandclement.com/~william/projects/luaossl.pdf
@@ -66,21 +78,41 @@ local dsTable = {
     [22] = "ia5"
 }
 
--- In case we decide to do any up-front validation of parameters, this is useful for sending back an error
-function errorResponse(str)
-    local errJSON = {}
-    errJSON["error"] = str
-    HTTPResponse.setHeader("content-type", "application/json")
+--
+-- Performs html encoding of a string. Used for error responses.
+--
+local function htmlEncode(str)
+    if str == nil then
+        return nil
+    end
+    
+    -- Replace HTML special characters with their entity equivalents
+    local html_entities = {
+        ["&"] = "&amp;",
+        ["<"] = "&lt;",
+        [">"] = "&gt;",
+        ['"'] = "&quot;",
+        ["'"] = "&#39;"
+    }
+    
+    return (str:gsub("[&<>\"']", html_entities))
+end
+--
+-- This is how we indicate a failure in processing of the certificate.
+-- 
+local function errorResponse(str)
+    HTTPResponse.setHeader("content-type", "text/html")
     HTTPResponse.setStatusCode(400)
     HTTPResponse.setStatusMsg("Bad Request")
-    HTTPResponse.setBody(cjson.encode(errJSON))
+    HTTPResponse.setBody('<html><h1>An error occurred during certificate authentication</h1><div id="errorDiv">' .. htmlEncode(str) .. '</div></html>')
 
     Control.responseGenerated(true)
 end
 
+
 -- decodes a DirectoryString (see DirectoryString definition in https://datatracker.ietf.org/doc/html/rfc5280)
 -- PrintableString=19, TeletexString=20 (aka T61String), UniversalString=28, UTF8String=12, BMPString=30
-function decodeDirectoryString(data)
+local function decodeDirectoryString(data)
     local result = nil
     local decodeResult = ber.decode(data)
     if (decodeResult ~= nil and decodeResult["class"] == 0 and decodeResult["data"] ~= nil and (decodeResult["type"] == 19 or decodeResult["type"] == 20 or decodeResult["type"] == 28 or decodeResult["type"] == 12 or decodeResult["type"] == 30)) then
@@ -93,7 +125,7 @@ function decodeDirectoryString(data)
 end
 
 -- decodes an OID into a printable string
-function decodeOID(data, len)
+local function decodeOID(data, len)
     -- oid (see https://learn.microsoft.com/en-us/windows/win32/seccertenroll/about-object-identifier)
     local result = ""
     local i = 1
@@ -115,7 +147,7 @@ function decodeOID(data, len)
 end
 
 -- returns a string ip address from a 4 byte array
-function decodeIPAddress(data, len)
+local function decodeIPAddress(data, len)
     local result = nil
     if (len == 4) then
         result = string.format("%d.%d.%d.%d", 
@@ -141,7 +173,7 @@ end
 -- the encoding format is a bit strange, but designed to mimic what jsrsasign does in the Infomap
 -- version of the certeai. Some of the DN fields are labeled slightly differently by jsrsasign, so
 -- inspect result["str"] and use it if you need to
-function decodeDirName(berData)
+local function decodeDirName(berData)
     local result = { str = "", array={}}
     if (berData["type"] == 4 and berData["constructed"] == true and #berData["children"] == 1) then
         local dnSeq = berData["children"][1]
@@ -216,7 +248,7 @@ end
 
 -- Decode the EDIPartyName field of a SAN
 -- This was developed and tested using a sample cert found as an attachment to: https://bugzilla.mozilla.org/show_bug.cgi?id=233586
-function decodeEDIPartyName(berData)
+local function decodeEDIPartyName(berData)
     --logger.debugLog("decodeEDIPartyName called with berData: " .. logger.dumpAsString(berData))
     local result = { str = "", array={}}
     if (berData["type"] == 5 and berData["constructed"] == true and #berData["children"] >= 1) then
@@ -242,7 +274,7 @@ function decodeEDIPartyName(berData)
 end
 
 -- decode CountryName
-function decodeCountryName(berData)
+local function decodeCountryName(berData)
     logger.debugLog("decodeCountryName called with berData: " .. logger.dumpAsString(berData))
     local result = {}
 
@@ -262,7 +294,7 @@ function decodeCountryName(berData)
 end
 
 -- decode AdministrationDomainName
-function decodeAdministrationDomainName(berData)
+local function decodeAdministrationDomainName(berData)
     logger.debugLog("decodeAdministrationDomainName called with berData: " .. logger.dumpAsString(berData))
     local result = {}
 
@@ -282,7 +314,7 @@ function decodeAdministrationDomainName(berData)
 end
 
 -- decodes BuiltInStandardAttributes
-function decodeBuiltInStandardAttributes(berData)
+local function decodeBuiltInStandardAttributes(berData)
     logger.debugLog("decodeBuiltInStandardAttributes called with berData: " .. logger.dumpAsString(berData))
         --[[
         {
@@ -357,7 +389,7 @@ end
 -- Decode the x400Address field of a SAN
 -- See definition of ORAddress in https://datatracker.ietf.org/doc/html/rfc5280
 -- This was developed and tested using a sample cert from IBM GSKit team (Simon).
-function decodeX400Address(berData)
+local function decodeX400Address(berData)
     logger.debugLog("decodeX400Address called with berData: " .. logger.dumpAsString(berData))
     local result = {}
     if (berData["type"] == 3 and berData["constructed"] == true and #berData["children"] >= 1) then
@@ -411,7 +443,7 @@ Example output (as JSON):
     }
 
 ]]--
-function decodeSubjectAlternativeName(sanData)
+local function decodeSubjectAlternativeName(sanData)
     -- This encoding of result is (on purpose) designed to mimic
     -- what jsrsasign does in the AAC/Infomap based example of the 
     -- certificate EAI. You could change this to be whatever you like
@@ -515,7 +547,7 @@ function decodeSubjectAlternativeName(sanData)
     return result
 end
 
-function logSubjectAlternativeName(san)
+local function logSubjectAlternativeName(san)
     logger.debugLog("ocert.getExtension(\"2.5.29.17\"): " .. logger.dumpAsString(san))
     logger.debugLog("san.getName(): " .. san:getName())
     logger.debugLog("san.getShortName(): " .. san:getShortName())
@@ -529,7 +561,7 @@ function logSubjectAlternativeName(san)
     logger.debugLog("logSubjectAlternativeName: " .. cjson.encode(parsedSANData))
 end
 
-function getPrincipalNameFromSAN(san)
+local function getPrincipalNameFromSAN(san)
 	local result = nil
 	if (san ~= nil and san["array"] ~= nil) then
         local found = false
@@ -555,8 +587,9 @@ MAIN ENTRY POINT STARTS HERE
 
 --logger.debugLog(logger.dumpAsString(Control.dumpContext()))
 
--- get the certificate from header
-local cert = HTTPRequest.getHeader("cert")
+-- get the certificate from Client data
+local cert = Client.getCertificateField("Base64Certificate")
+logger.debugLog("certificate EAI cert from Client: " .. logger.dumpAsString(cert or "nil"))
 
 -- test cert from for ediPartyName testing (https://bugzilla.mozilla.org/show_bug.cgi?id=233586)
 --local cert = "MIICujCCAnagAwIBAgIBLDALBgcqhkjOOAQDBQAwKjELMAkGA1UEBhMCdXMxDDAKBgNVBAoTA3N1bjENMAsGA1UECxMEbGFiczAeFw0wNDAyMDkxOTQzNTJaFw0wNDAyMDkxOTQzNTJaMDsxCzAJBgNVBAYTAnVzMQwwCgYDVQQKEwNzdW4xDTALBgNVBAsTBGxhYnMxDzANBgNVBAMTBnlhc3NpcjCCAbcwggEsBgcqhkjOOAQBMIIBHwKBgQD9f1OBHXUSKVLfSpwu7OTn9hG3UjzvRADDHj+AtlEmaUVdQCJR+1k9jVj6v8X1ujD2y5tVbNeBO4AdNG/yZmC3a5lQpaSfn+gEexAiwk+7qdf+t8Yb+DtX58aophUPBPuD9tPFHsMCNVQTWhaRMvZ1864rYdcq7/IiAxmd0UgBxwIVAJdgUI8VIwvMspK5gqLrhAvwWBz1AoGBAPfhoIXWmz3ey7yrXDa4V7l5lK+7+jrqgvlXTAs9B4JnUVlXjrrUWU/mcQcQgYC0SRZxI+hMKBYTt88JMozIpuE8FnqLVHyNKOCjrh4rs6Z1kW6jfwv6ITVi8ftiegEkO8yk8b6oUZCJqIPf4VrlnwaSi2ZegHtVJWQBTDv+z0kqA4GEAAKBgA2SU4K/vPP3bSu89PY+wY9WCpXiXE0P48RS3kCW2xtyMDHD0jWNlXAwOoQtd1xMzDQLP7+rKNiS0DlXcFWYjVq8O6txdXDLBPdOV9jRfCqgmKSqKOOB3Kqbqq5ugNwW3Sfz9+aWdW10L4QNgjGClBFllH5tzZMHaZPAPcc9XKy7oxswGTAXBgNVHREEEDAOpQyBChMIZWRpUGFydHkwCwYHKoZIzjgEAwUAAzEAMC4CFQCNrkXreYTYZQdRbwP0CvtgVF7IfAIVAIaUd40H3/1qE9/Jt4ci+JYBYXz3"
@@ -564,13 +597,13 @@ local cert = HTTPRequest.getHeader("cert")
 --local cert = "MIICrzCCAm2gAwIBAgIBOjALBgcqhkjOOAQDBQAwKjELMAkGA1UEBhMCdXMxDDAKBgNVBAoTA3N1bjENMAsGA1UECxMEbGFiczAeFw0wNDAyMTAxODQ1MDlaFw0wNDAyMTAxODQ1MDlaMDsxCzAJBgNVBAYTAnVzMQwwCgYDVQQKEwNzdW4xDTALBgNVBAsTBGxhYnMxDzANBgNVBAMTBnlhc3NpcjCCAbcwggEsBgcqhkjOOAQBMIIBHwKBgQD9f1OBHXUSKVLfSpwu7OTn9hG3UjzvRADDHj+AtlEmaUVdQCJR+1k9jVj6v8X1ujD2y5tVbNeBO4AdNG/yZmC3a5lQpaSfn+gEexAiwk+7qdf+t8Yb+DtX58aophUPBPuD9tPFHsMCNVQTWhaRMvZ1864rYdcq7/IiAxmd0UgBxwIVAJdgUI8VIwvMspK5gqLrhAvwWBz1AoGBAPfhoIXWmz3ey7yrXDa4V7l5lK+7+jrqgvlXTAs9B4JnUVlXjrrUWU/mcQcQgYC0SRZxI+hMKBYTt88JMozIpuE8FnqLVHyNKOCjrh4rs6Z1kW6jfwv6ITVi8ftiegEkO8yk8b6oUZCJqIPf4VrlnwaSi2ZegHtVJWQBTDv+z0kqA4GEAAKBgA2SU4K/vPP3bSu89PY+wY9WCpXiXE0P48RS3kCW2xtyMDHD0jWNlXAwOoQtd1xMzDQLP7+rKNiS0DlXcFWYjVq8O6txdXDLBPdOV9jRfCqgmKSqKOOB3Kqbqq5ugNwW3Sfz9+aWdW10L4QNgjGClBFllH5tzZMHaZPAPcc9XKy7oxIwEDAOBgNVHREEBzAFowMTAWEwCwYHKoZIzjgEAwUAAy8AMCwCFCVcuekcrfkp48dNrG+XMxQFZp1GAhQISBmfZLbT9/g9nw+ci2MkqbDa/w=="
 -- test cert from for x400 name testing (from GSKit - Simon)
 --local cert = "MIIFFzCCAv+gAwIBAgIUZHS2IBfR0kTxNj2UmE19NS0lSoswDQYJKoZIhvcNAQELBQAwDTELMAkGA1UEAwwCQ0EwHhcNMjQxMjAzMDM1NTQyWhcNMjUxMjAzMDM1NTQyWjANMQswCQYDVQQDDAJDQTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBANDjK/YNIqfOaCKX50q/Tcui++Nhgst/EpP8IMD6sxra0hWnZOHLE+gpQe1kc9Xc5Pj1Tbhn8iCv+h/OT4d4U3gdKX/BIHkLCl5xv6oGDw6C9eNp9khonRhZwTN8N2JH5epHbnRNfdfOBcYo7Tf0BMw9vzp0H6HDvVu8ncwO7ca5q+7h/aiMeg3p3DV2s+nHsyFveTVQKgnB/CEgHhmVLhutBLMm3n1ZsT42Dp0nCwISBzs0SkiIgjZuRw/sgl/auDEwj/TVzutOQbgNTTIAKJC+zaUoXXAMFEepqqp4Bsb+bf4M/4v9r+I4+XlUzDbh2Gf1dd2KOxiqmKCCWrq2wcB+hdl5FLapseO4994BoxRgpkWOAtiqTeFp8BrkoUMGAYaKfe7L0X8sxeqj3z0kW2HG/z4ueaUb/fXorb8haIzZaxUDGSzLFDGkVHA1gD2qNZVKVrT+3VOnYSlgVmy8sJqo88KF6u7ffWja/XkIGoi8HkmU6nOO2mWI3JYRlSJeurEoz0u4b6BPz4FIlKz0uQupXeRwJ11RftQGpgNiIlfcKEqaeAI25VtAAOVA5qgZPRjRQlC/yURvdI6Ypx4BA1AyvSpcaXxASw1gY5b5x56UAzzIj6B3TWcPp9fUACHUc7PfUV3PcYAvRql3yJ2ZuTUclj9R4HrhNy1XrAm63xk5AgMBAAGjbzBtMBoGA1UdEQQTMBGjDzANYQQTAkFVYgUTA0lCTTAuBgNVHR8EJzAlMCOgIaAfhh1odHRwOi8vbG9jYWxob3N0OjQ0NDQvY3JsLmNybDALBgNVHQ8EBAMCAYYwEgYDVR0TAQH/BAgwBgEB/wIBADANBgkqhkiG9w0BAQsFAAOCAgEAnZ5tUdVVN02pZ654wwKeWfmQ1kVqijPKGQwPEOhI8BN4qb75EEMhEJ5qonICGUy5vrvG4on+NDbUw+1bDIsb04u6ry3frTkG6FwC9S9KEtpXQgpLCx/IRoEeq5dK0Z7kR7hzTHemtQx608v1LpVejj55AYuWKS6a/7fosfKJS8MMEZ18dMJXei1KRpjg+w6+yNbAQUZBdscMAqmapvD+4hrSD0xjyjentPWmdk5lm+Xo0U4KT79XHLqtj4Yk++N9UOAbB67IqdpFGVlvWFs1wH2UakYMHWVHuwNYe034wu5kEoSWX4ylzuQpIXsMW54vK+k9m8z8u17cJur9KmW9P7bkrI11bNasiBm4ej2WVu6HRFYpx+rH3FkghFv0QVsmhntXiM5lIWRTNA0MwnlWjwbnMHpTUCOa+816dXR06CUD7s4xAAThxn34KHaBI52CupRSKJalH2vXenge6FTo9K98iPb6aDICLhW090RoF77x/qCApUqUxzvARHCGu/rHv7iLZ4dTUe8r7OBdtQxObZqLOxUc5X1e5gLA+ty5qRe+yO+9xf8Xhm0ov1Tukwp+x2klo7MqzpIIqqoyZiPnK6Ucx8oamQeI+0tmnPNAAP+/7XSNv/+52x/lMWETj1h7DYaIUwG5mDwvcBX9JoIinGn6CX1dvzOU2jcEt0VazPk="
+--logger.debugLog("certificate EAI called with cert: " .. logger.dumpAsString(cert or "nil"))
 
 
 local san = nil
 local sanUPN = nil
 if not cert then
-    logger.debugLog("certificate header not found")
-    errorResponse("no certificate header")
+    errorResponse("no certificate available in request")
 else
     --logger.debugLog("cert: " .. cert)
     local ocert = x509.new("-----BEGIN CERTIFICATE-----\n" .. cert .. "\n-----END CERTIFICATE-----\n", "PEM")
@@ -582,23 +615,19 @@ else
         san = decodeSubjectAlternativeName(subjectAltNameExtension:getData())
         sanUPN = getPrincipalNameFromSAN(san)
     end
+
+    if san then
+        Authentication.setAttribute("san", cjson.encode(san))
+    end
+    if sanUPN then
+        Authentication.setAttribute("sanUPN", sanUPN)
+    end
+
+
+    --
+    -- Set the user identity - typically you would find this from some field in the certificate
+    --
+    -- If there is an error, call errorResponse instead
+    --
+    Authentication.setUserIdentity("testuser", false)
 end
-
-
--- Set the EAI response data.
--- If you want to map the user to something based on the SAN data, 
--- then take a look at the san object and extract from there or return an error.
-
-if (san ~= nil and sanUPN ~= nil) then
-    HTTPResponse.setStatusCode(200)
-    HTTPResponse.setStatusMsg("OK")
-    HTTPResponse.setHeader("am-eai-user-id", sanUPN)
-    HTTPResponse.setHeader("am-eai-auth-level", "1")
-    HTTPResponse.setHeader("am-eai-xattrs", "san")
-    HTTPResponse.setHeader("san", cjson.encode(san))
-    HTTPResponse.setBody('<html>This response should never be seen.</html>')
-else
-    errorResponse("Unable to find UPN in certificate")
-end
-
-Control.responseGenerated(true)
