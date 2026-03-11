@@ -15,7 +15,7 @@
 --]]
 local logger = require 'LoggingUtils'
 local cryptoLite = require "CryptoLite"
-local jwtUtils = require 'JWTUtils'
+local jwtUtils = require 'JWTUtils2'
 local cjson = require "cjson"
 
 logger.debugLog("testjwtutils")
@@ -179,6 +179,26 @@ jwtValidateOptions = {
         validateExp = false
     }
 testJWTGenerateValidate("Generate/Validate JWT with ES256", jwtGenerateOptions, jwtValidateOptions)
+
+
+--
+-- Validate a signed JWT where the signature validation key is included in JWK format in the JWT header
+-- This example comes from a DBSC Secure-Session-Response http header
+--
+local title = "Validate signature of JWT from JWK in Header (DBSC example)"
+local jwt_SecureSessionResponse = "eyJhbGciOiJFUzI1NiIsImp3ayI6eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6InNqanFkTTA3RllVN3RveFlrcWZDQnpOMkw2eFZsRXpsTU91OTNoWWthc2ciLCJ5IjoicWNXSlEzR18ycTRURHhBMmF0Q1JRZXJIQWRhQ1dvYWNZRmVvMV9MZ0F4dyJ9LCJ0eXAiOiJkYnNjK2p3dCJ9.eyJqdGkiOiJleUpyYVdRaU9pSTJSa2t0TmtKZlV6WlBhazExYjFaM1Z6bEZiV1F3T1dvd05WOXdRa1l3WjI1R1pVZEdhMHRTU1dNNElpd2lZV3huSWpvaVVsTXlOVFlpZlEuZXlKemRXSWlPaUkwTXpneU1qaG1OUzAyT1RRM0xUUXlaRE10T0dReU5TMWlOemhrT0RJeFpEbGtORFlpTENKaGRXUWlPaUpvZEhSd2N6b3ZMMlpwWkc5cGJuUmxjbTl3TG5ObFkzVnlhWFI1Y0c5akxtTnZiUzlrWW5OakwzTjBZWEowYzJWemMybHZiaTlqY21Wa0lpd2laWGh3SWpveE56Y3pNVGs0TURVMUxDSnFkR2tpT2lKT1pGaHpUWGx2Ym5CWVVtMWpkMjUwY3pGaGVDSjkuZFloWjR2ZktUX0ZrUlM5SDBNNGppMmtxQjlTejM2UUZDSnFCNWoxd1QyLXc5UUZjVDdyM2FySmdtOEtlU01sOWxUTk1jVHc2aWdzRVcxeV9INUN2dmhOb0Z6SHd4WDBtYThINVlJSWppZUlER0dGaVpMQkdkcTFzMDVWbEVEWHlfWkRZa1drTi1ReWc1YjVodlBpN2NhTElEVkJIY2ZPSHFnYU40NTdrdVBjUGdHQmJEQlR6b2VwRjFvYkxUdWJsR2NBRERmRF9ldFczaTNIVkRHVXZUUzNMZGRVQXluNm1OWWdGX21jYXprQ2ZZcEo3b1NGa3h4cFJOcW14a1BRSEV0MEhabmM3WHVQZUNzeVZMb3o5MkFmSjZLUWMydUQyWUt6T0V3ZnIzbmxUa2V0U1RGR2QxWmpxUFg4N2xpQTg1eEU5a3phWmZucjlKRGFRWjk4SGFBIn0.4AOtXMb6qjWu6cQiqJ13lV4U2Vfb9n8taxUSWhplaQJTleVhBqZLf5-vDgHwt0UHUG9yh8-OETBeq8jQaLnWJw"
+local success, decodeResults = pcall(jwtUtils.decode, jwt_SecureSessionResponse)
+if success then
+    jwtValidateOptions = {
+        jwt = jwt_SecureSessionResponse,
+        algorithm = decodeResults.jwtHeader.alg,
+        key = cryptoLite.jwkToPEM(decodeResults.jwtHeader.jwk),
+        validateExp = false
+    }
+    testJWTGenerateValidate(title, nil, jwtValidateOptions)
+else
+    rspBody = rspBody .. errorBlockWithTitle(title, "Failed to decode JWT: " .. jwt_SecureSessionResponse)
+end
 
 -- Encrypted JWT with RSA
 logger.debugLog("Encrypt/Descrypt JWT with RS256")

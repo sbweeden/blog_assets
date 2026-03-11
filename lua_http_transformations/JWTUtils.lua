@@ -403,8 +403,7 @@ end
 --[[
     Decode a JWT without validation (useful for inspecting tokens)
     @param jwt: JWT string
-    @return header: Decoded header table or nil
-    @return claims: Decoded claims table or nil
+    @return result: Table with jwtHeader, jwtClaims or throws an error on failure with an error message
     @return error: Error message if decoding failed
 --]]
 function JWTUtils.decode(jwt)
@@ -460,7 +459,10 @@ function JWTUtils.decode(jwt)
         error("JWTUtils.decode: failed to parse claims JSON")
     end
     
-    return header, claims, nil
+    return {
+        jwtHeader = header, 
+        jwtClaims = claims 
+    }
 end
 
 --[[
@@ -822,7 +824,7 @@ function JWTUtils.validateEncrypted(options)
         if not success then
             error("JWTUtils.validateEncrypted: Decryption of JWS to JWT failed: " .. tostring(decryptedJWT))
         else
-            --logger.debugLog("Decrypted JWS to JWT: " .. logger.dumpAsString(decryptedJWT))
+            --logger.debugLog("Decrypted JWS (before zip deflate): " .. logger.dumpAsString(decryptedJWT))
         end
         jwt = decryptedJWT
     end
@@ -831,6 +833,7 @@ function JWTUtils.validateEncrypted(options)
     if jweHeader.zip == "DEF" then
         --logger.debugLog("JWTUtils.validateEncrypted: Deflating plaintext")
         jwt = libDeflate:DecompressDeflate(jwt)
+        --logger.debugLog("Deflated JWT: " .. logger.dumpAsString(jwt))
     end
 
     -- make sure there is no leading or trailing non-b64u valid characters around the JWT before sending for signature validation
