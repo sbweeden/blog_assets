@@ -158,7 +158,7 @@ These scenario HTTP transformation rules have either come up in the context of a
 
 | Module | Description |
 |--------|-------------|
-| testcredparser.lua | Exercises tests on a CredParser capabilities and displays the outcome in a HTML page. |
+| testcredparser.lua | Exercises tests on CredParser capabilities and displays the outcome in a HTML page. |
 | testcryptolite.lua | Exercises tests on a bunch of the CryptoLite functions and displays the outcome in a HTML page. |
 | testjwk.lua | Exercises tests specifically on the JWK capabilities of the CryptoLite module and displays the outcome in a HTML page. |
 | testjwtutils.lua | Exercises tests on the JWTUtils module and displays the outcome in a HTML page. |
