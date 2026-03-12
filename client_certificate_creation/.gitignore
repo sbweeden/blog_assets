@@ -1,0 +1,8 @@
+*.key
+*.pub
+*.pem
+*.csr
+*.srl
+*.aaguid
+*.config
+*.p12
