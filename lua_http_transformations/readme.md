@@ -118,6 +118,7 @@ This section contains a list of the different Lua HTTP utility modules and examp
 | Module | Description |
 |--------|-------------|
 | ber.lua | Copied from https://github.com/Firanel/lua-ber this is used as a utility library in some of my other Lua files and is included here for convenience. |
+| CredParser.lua | Encodes and decodes ivcreds PAC headers, using ber.lua as the ASN.1 encoder |
 | CryptoLite.lua | Built predominently on top of luaossl, exposes a range of standard cryptographic capabilities such as key generation, signing/validation and encryption/decryption. |
 | FormsModule.lua | Useful for working with POST requests containing form-encoded parameters. Will also parse query string parameters. |
 | HTMLUtils.lua | Provides html safe encoding/decoding functions. |
@@ -157,6 +158,7 @@ These scenario HTTP transformation rules have either come up in the context of a
 
 | Module | Description |
 |--------|-------------|
+| testcredparser.lua | Exercises tests on a CredParser capabilities and displays the outcome in a HTML page. |
 | testcryptolite.lua | Exercises tests on a bunch of the CryptoLite functions and displays the outcome in a HTML page. |
 | testjwk.lua | Exercises tests specifically on the JWK capabilities of the CryptoLite module and displays the outcome in a HTML page. |
 | testjwtutils.lua | Exercises tests on the JWTUtils module and displays the outcome in a HTML page. |
