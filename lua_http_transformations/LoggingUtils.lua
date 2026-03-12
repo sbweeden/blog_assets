@@ -33,7 +33,7 @@ function LoggingUtils.dumpAsString(o)
          return 'ByteString[' .. LoggingUtils.toHexString(o) .. ']'
       end
    elseif type(o) == 'function' then
-      return 'Function[' .. k .. ']'
+      return 'Function[]'
    else
       return tostring(o)
    end

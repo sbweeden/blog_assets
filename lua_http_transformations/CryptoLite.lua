@@ -3467,7 +3467,7 @@ function CryptoLite.decryptJWE(options)
 
     -- Step 3: If the plaintext is zip'd, deflate it
     if jweHeader.zip == "DEF" then
-        --logger.debugLog("JWTUtils.validateEncrypted: Deflating plaintext")
+        --logger.debugLog("CryptoLite.decryptJWE: Deflating plaintext")
         plaintext = libDeflate:DecompressDeflate(plaintext)
     end
     
