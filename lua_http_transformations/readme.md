@@ -8,7 +8,7 @@ There is an assumption made here that you are familiar with ISVA, enough to run 
 
 You should also be familar with the ISVA product documentation for Lua HTTP transformation rules. For more information on this, find the product documentation here:
 
-[Lua Transformation](https://www.ibm.com/docs/en/sva/10.0.7?topic=transformations-lua-transformation)
+[Lua Transformation](https://www.ibm.com/docs/en/sva/11.0.2?topic=transformations-lua-transformation)
 
 Finally, you should understand that if you create a new Lua HTTP transformation rule it is initially populated with a large commented section that describes all the standard Lua modules that are available for use, as well as the custom Lua modules provided by ISVA for working with requests, responses, session attributes, credential attributes and more. I find it very useful to keep a "copy" of the default rule text with the commented out section nearby whenever I'm writing a Lua HTTP transformation rule.
 
@@ -109,7 +109,7 @@ request-body-max-read = 32768
 ```
 The default is 32768, so if your body size is expected to be larger (it often is) then you need to increase this if you plan to read the entire request or response body in your transformation rule.
 
-## Complete list of utility and example Lua modules
+## List of utility and example Lua modules
 
 This section contains a list of the different Lua HTTP utility modules and example scenario transformations that I've built and their purpose.
 
@@ -117,8 +117,14 @@ This section contains a list of the different Lua HTTP utility modules and examp
 
 | Module | Description |
 |--------|-------------|
+| ber.lua | Copied from https://github.com/Firanel/lua-ber this is used as a utility library in some of my other Lua files and is included here for convenience. |
+| CryptoLite.lua | Built predominently on top of luaossl, exposes a range of standard cryptographic capabilities such as key generation, signing/validation and encryption/decryption. |
+| FormsModule.lua | Useful for working with POST requests containing form-encoded parameters. Will also parse query string parameters. |
+| HTMLUtils.lua | Provides html safe encoding/decoding functions. |
+| JWTUtils.lua | Provides basic JWT generation and validation capabilities, including signed and encrypted JWTs, subject to the version of IVIA you are running as some capabilities require updates to the standard luaossl library. |
+| LibDeflate.lua | Copied from https://github.com/safeteeWow/LibDeflate this is used as a utility library in some of my other Lua files and is included here for convenience. |
 | LoggingUtils.lua | Allows printing to WRP msg log, and stringifies complex objects such as tables. Also has a string to hex function |
-| FormsModule.lua | Useful for working with POST requests containing form-encoded parameters. Will also parse query string parameters |
+| RedisHelper.lua | Primitive redis helper for WebSEAL/IAG session management. Wraps the redis luarocks module with some code that helps with detecting configuration of Redis straight from the WebSEAL/IAG configuration file. |
 | STSClient.lua | Uses the HTTPClient to call the ISVA STS. Comments show configuration requirements. | 
 
 
@@ -128,9 +134,29 @@ These scenario HTTP transformation rules have either come up in the context of a
 
 | Module | Description |
 |--------|-------------|
-| default_10_0_7.lua | This is just a copy of the out-of-the-box default Lua HTTP transformation rule from ISVA 10.0.7. Useful as a reference for the comments it contains |
-| echo_context.lua | This is a handy utility that just returns in a HTTP response the context it received. This can be particularly useful to capture the context from a "real request" in a runtime environment when you then want to work with the offline Lua testing tool. |
-| pkmspasswd.lua | This request HTTP transformation rule can be applied to the /pkmspasswd.form submission URL for the /pkmspasswd change password function of the WRP. It demonstrates how to reject an attempt to change a password when the old and new passwords are the same. You could easily imagine this integrating with external password strength checkers as well. |
+| allow_unauthenticated.lua | Demonstrates how to skip standard authorization processing on a resource and just allow access. |
 | assert_username_eai.lua | A simple EAI authentication transformation that logs you in as the username provided in the query string. Definitely for demonstration purposes only! |
+| default_10_0_7.lua | This is just a copy of the out-of-the-box default Lua HTTP transformation rule from ISVA 10.0.7. Useful as a reference for the comments it contains |
+| certeai.lua | A sophisticated certificate authentication EAI that demonstrates how to unpack X509 certificate data and read fields from the SubjectAltName extension that can be then used as the username to login with, or added as credential attributes |
+| credential_macros.lua | A response transformation that replaces some magic string macros in the response page with values from the credential. |
+| echo_context.lua | This is a handy utility that just returns in a HTTP response the context it received. This can be particularly useful to capture the context from a "real request" in a runtime environment when you then want to work with the offline Lua testing tool. |
+| jwks_filter_app.lua | This *response* HTTP transformation rule looks at the response body of the JWKS endpoint and filters out any entries that don't have an x5c with a DN corresponding to a known "map table" defined as a constant in this transformation rule. |
 | jwks_filter_expired.lua | This *response* HTTP transformation rule parses the output of the AAC JWKS endpoint, removing entries where any of the x5c entries contain an expired certificate. |
+| pkmspasswd.lua | This request HTTP transformation rule can be applied to the /pkmspasswd.form submission URL for the /pkmspasswd change password function of the WRP. It demonstrates how to reject an attempt to change a password when the old and new passwords are the same. You could easily imagine this integrating with external password strength checkers as well. |
 | pkmsvouchfor.lua | This transformation restricts the set of target hosts for which an ECSSO (e-community single sign-on, a very old SSO technology of WebSEAL) token will be generated. |
+| preserve_credential_attributes.lua | A transformation that runs at the conclusion of each authentication method that it is configured against to propagate forward a set of credential attributes during stepup operations. |
+| recaptchav3_forms_login.lua | A transformation that exercises recaptchav3 (https://developers.google.com/recaptcha/docs/v3) and is particularly intended to be used on /pkmslogin.form to try and perform bot detection of a credential stuffing attack against username/password login. |
+| recaptchav3.lua | A simpler and more generic exercise of recaptchav3 (https://developers.google.com/recaptcha/docs/v3) that is purely for demonstration purposes. It could be used as a base for specific risk-based integration of recaptchav3 in a transactional scenario. |
+| remove_all_cookies.lua | A HTTP transformation that removes all cookies from inbound requests. I have found this useful for resources that you want to behave statelessly when the client may be preserving and using session cookies. |
+| snoop.lua | A HTTP transformation that captures the request context and logs it. This is useful for debugging and testing purposes, and can be used to capture request and response information that is being sent to and from the server. |
+| terminate_user_sessions_eai.lua | DO NOT USE THIS - it doesn't actually work as I expected, but I've kept it for later reference. |
+| terminate_user_sessions_redis.lua | A HTTP transformation that can be used to terminate all sessions for a user when the WebSEAL or IAG is configured to use Redis for session. |
+| webseal_oidc_par.lua | A HTTP transformation that can be used as an alternative kickoff URL for the built-in WebSEAL/IAG OIDC to perform pushed authorization requests (PAR). |
+
+### Other transformations and their purposes
+
+| Module | Description |
+|--------|-------------|
+| testcryptolite.lua | Exercises tests on a bunch of the CryptoLite functions and displays the outcome in a HTML page. |
+| testjwk.lua | Exercises tests specifically on the JWK capabilities of the CryptoLite module and displays the outcome in a HTML page. |
+| testjwtutils.lua | Exercises tests on the JWTUtils module and displays the outcome in a HTML page. |
