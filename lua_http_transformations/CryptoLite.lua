@@ -2568,6 +2568,11 @@ local function pemRSAPublicToJWK(publicKeyData)
     -- Extract n and e
     local n = decoded.children[1].data
     local e = decoded.children[2].data
+
+    -- strip leading zero from n of present
+    if #n > 1 and n:byte(1) == 0 then
+        n = n:sub(2)
+    end
     
     -- Build JWK
     local jwk = {
