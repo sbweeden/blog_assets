@@ -36,11 +36,11 @@
 local JWTUtils = {}
 
 -- Load required modules
-local logger = require 'LoggingUtils'
+local logger = require "LoggingUtils"
 local cryptoLite = require "CryptoLite"
 local cjson = require "cjson"
 local pkey = require "openssl.pkey"
-local libDeflate = require("LibDeflate")
+local libDeflate = require "LibDeflate"
 
 --[[
     ============================================================================
@@ -69,33 +69,13 @@ local function findKeyInJWKS(jwks, kid)
 end
 
 --[[
-    Convert JWK to PEM format
-    @param jwk: JSON Web Key object
-    @return pem: PEM-formatted key string or nil
---]]
-local function jwkToPEM(jwk)
-    -- For x5c (X.509 certificate chain), use the first certificate
-    if jwk.x5c and #jwk.x5c > 0 then
-        local cert = jwk.x5c[1]
-        return "-----BEGIN CERTIFICATE-----\n" .. cert .. "\n-----END CERTIFICATE-----"
-    end
-    
-    -- For direct key material (n, e for RSA or x, y for EC)
-    -- This is a simplified implementation - full JWK to PEM conversion
-    -- would require more complex ASN.1 encoding
-    -- For production use, consider using pre-converted PEM keys in JWKS
-    
-    return nil
-end
-
---[[
     Get all potential verification keys from JWKS
     @param jwks: JWKS data structure
     @param kid: Optional key ID to filter by
-    @param alg: Optional algorithm to filter by
     @return keys: Array of PEM-formatted keys
 --]]
-local function getVerificationKeysFromJWKS(jwks, kid, alg)
+local function getVerificationKeysFromJWKS(jwks, kid)
+
     local keys = {}
     
     if not jwks or not jwks.keys then
@@ -107,16 +87,11 @@ local function getVerificationKeysFromJWKS(jwks, kid, alg)
         if kid and jwk.kid ~= kid then
             goto continue
         end
-        
-        -- Filter by algorithm if provided
-        if alg and jwk.alg and jwk.alg ~= alg then
-            goto continue
-        end
-        
+                
         -- Convert JWK to PEM
-        local pem = jwkToPEM(jwk)
+        local pem = cryptoLite.jwkToPEM(jwk)
         if pem then
-            table.insert(keys, {pem = pem, kid = jwk.kid, alg = jwk.alg})
+            table.insert(keys, {pem = pem, kid = jwk.kid})
         end
         
         ::continue::
@@ -369,7 +344,7 @@ function JWTUtils.validate(options)
     elseif options.jwks then
         -- Get keys from JWKS
         local kid = header.kid
-        verificationKeys = getVerificationKeysFromJWKS(options.jwks, kid, algorithm)
+        verificationKeys = getVerificationKeysFromJWKS(options.jwks, kid)
         
         if #verificationKeys == 0 then
             error("JWTUtils.validate: no matching keys found in JWKS")
@@ -380,7 +355,7 @@ function JWTUtils.validate(options)
     
     -- Try each verification key
     local signatureBaseString = headerEncoded .. "." .. claimsEncoded
-    
+
     for _, keyInfo in ipairs(verificationKeys) do
         local success, valid = pcall(cryptoLite.verify, signatureBaseString, signatureEncoded, keyInfo.pem, algorithm)
         if success and valid then

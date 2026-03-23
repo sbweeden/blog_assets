@@ -11,6 +11,7 @@ local kdf = require "openssl.kdf"
 local pkey = require "openssl.pkey"
 local digest = require "openssl.digest"
 local hmac = require "openssl.hmac"
+local x509 = require "openssl.x509"
 local ber = require "ber"
 local cjson = require "cjson"
 
@@ -2661,8 +2662,19 @@ local function pemPublicToJWK(pem)
 end
 
 --[[
+    Extract public key from X.509 certificate
+    @param certPEM: X.509 certificate in PEM format
+    @return PEM: Public key in PEM format    
+--]]
+local function extractPublicKeyFromCertificate(certPEM)
+    local ocert = x509.new(certPEM)
+    local publicKey = ocert:getPublicKey()
+    return publicKey:toPEM("public")
+end
+
+--[[
     Convert JWK to PEM format
-    @param jwk: The JSON web key. Can be an ECDSA public or private key, or an RSA public or private key
+    @param jwk: The JSON web key. Can be an ECDSA public or private key, or an RSA public or private key or a certificate
     @return PEM: The public or private key in PEM format, or nil and error message
     
     Supports:
@@ -2670,19 +2682,21 @@ end
     - RSA private keys (kty="RSA", n, e, d, p, q, dp, dq, qi)
     - EC public keys (kty="EC", crv, x, y)
     - EC private keys (kty="EC", crv, x, y, d)
-    - X.509 certificates (x5c array)
+    - X.509 certificates (x5c array) - extracts public key from certificate
 --]]
 function CryptoLite.jwkToPEM(jwk)
     if not jwk then
         error("CryptoLite.jwkToPEM: jwk is required")
     end
     
-    -- Handle x5c (X.509 certificate chain) - use the first certificate
+    -- Handle x5c (X.509 certificate chain) - extract public key from the first certificate
     if jwk.x5c and type(jwk.x5c) == "table" and #jwk.x5c > 0 then
         local cert = jwk.x5c[1]
         -- Remove any whitespace and ensure proper formatting
         cert = cert:gsub("%s+", "")
-        return "-----BEGIN CERTIFICATE-----\n" .. cert .. "\n-----END CERTIFICATE-----"
+        local certPEM = "-----BEGIN CERTIFICATE-----\n" .. cert .. "\n-----END CERTIFICATE-----"
+        -- Extract and return the public key from the certificate
+        return extractPublicKeyFromCertificate(certPEM)
     end
     
     -- Determine key type
