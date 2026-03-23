@@ -64,6 +64,19 @@ local function deriveKey(passphrase, salt, keyLength, iterations)
 end
 
 --[[
+Returns data after optionally removing the leading zero from a byte string if the next byte has bit 8 set.
+This is used to convert padded asn.1 integers to their JWK versions before base64URL encoding
+--]]
+local function removePaddingZero(data)
+    local paddingLength = 0
+    local mask = 1 << 7
+    if (#data > 1 and data:byte(1) == 0 and (data:byte(2) & mask ~= 0)) then
+        paddingLength = 1
+    end
+    return data:sub(paddingLength + 1, #data)
+end
+
+--[[
     Removes leading zero bytes from a byte string, whist ensuring the byte string is not truncated 
     below the minLength number of bytes (provided it was at least that long to start with)
     @param data: The byte string to process
@@ -2565,14 +2578,9 @@ local function pemRSAPublicToJWK(publicKeyData)
         error("CryptoLite.pemRSAPublicToJWK: incomplete RSA public key structure")
     end
     
-    -- Extract n and e
-    local n = decoded.children[1].data
-    local e = decoded.children[2].data
-
-    -- strip leading zero from n of present
-    if #n > 1 and n:byte(1) == 0 then
-        n = n:sub(2)
-    end
+    -- Extract n and e, with padding zero removed from n as needed
+    local n = removePaddingZero(decoded.children[1].data)
+    local e = removePaddingZero(decoded.children[2].data)
     
     -- Build JWK
     local jwk = {
@@ -2757,15 +2765,15 @@ local function pemRSAPrivateToJWK(pem)
         error("CryptoLite.pemRSAPrivateToJWK: incomplete RSA private key structure")
     end
     
-    -- Extract components (skip version at index 1)
-    local n = decoded.children[2].data
-    local e = decoded.children[3].data
-    local d = decoded.children[4].data
-    local p = decoded.children[5].data
-    local q = decoded.children[6].data
-    local dp = decoded.children[7].data
-    local dq = decoded.children[8].data
-    local qi = decoded.children[9].data
+    -- Extract components (skip version at index 1), removing padding zeros
+    local n = removePaddingZero(decoded.children[2].data)
+    local e = removePaddingZero(decoded.children[3].data)
+    local d = removePaddingZero(decoded.children[4].data)
+    local p = removePaddingZero(decoded.children[5].data)
+    local q = removePaddingZero(decoded.children[6].data)
+    local dp = removePaddingZero(decoded.children[7].data)
+    local dq = removePaddingZero(decoded.children[8].data)
+    local qi = removePaddingZero(decoded.children[9].data)
     
     -- Build JWK
     local jwk = {
@@ -3021,14 +3029,14 @@ local function pemRSAPrivateDataToJWK(privateKeyData)
     end
     
     -- Extract components (skip version at index 1)
-    local n = decoded.children[2].data
-    local e = decoded.children[3].data
-    local d = decoded.children[4].data
-    local p = decoded.children[5].data
-    local q = decoded.children[6].data
-    local dp = decoded.children[7].data
-    local dq = decoded.children[8].data
-    local qi = decoded.children[9].data
+    local n = removePaddingZero(decoded.children[2].data)
+    local e = removePaddingZero(decoded.children[3].data)
+    local d = removePaddingZero(decoded.children[4].data)
+    local p = removePaddingZero(decoded.children[5].data)
+    local q = removePaddingZero(decoded.children[6].data)
+    local dp = removePaddingZero(decoded.children[7].data)
+    local dq = removePaddingZero(decoded.children[8].data)
+    local qi = removePaddingZero(decoded.children[9].data)
     
     -- Build JWK
     local jwk = {
