@@ -857,7 +857,7 @@ local function performLogin(options)
                     if type(v2) == 'table' then
                         table.insert(strArray, cjson.encode(v2))
                     else
-                        table.insert(strArray, logger.dumpAsString(v))
+                        table.insert(strArray, logger.dumpAsString(v2))
                     end
                 end
                 Authentication.setAttribute(k, strArray)
