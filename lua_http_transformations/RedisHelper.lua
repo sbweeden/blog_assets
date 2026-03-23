@@ -151,8 +151,12 @@ function RedisHelper.getGlobalKey(client, lookupKey)
     return client:get(lookupKey)
 end
 
-function RedisHelper.setGlobalKey(client, lookupKey, value)
-    client:set(lookupKey, value)
+function RedisHelper.setGlobalKey(client, lookupKey, value, ttlSeconds)
+    if (ttlSeconds ~= nil) then
+        client:setex(lookupKey, ttlSeconds, value)
+    else
+        client:set(lookupKey, value)
+    end
 end
 
 return RedisHelper

@@ -163,6 +163,18 @@ local oidcClientConfig = cjson.decode(clientConfigString)
 --]]
 
 --[[
+    computeLeftMostHash
+    Returns base64url encoded left-most half of the sha256 hash of the data
+-- ]]
+
+function computeLeftMostHash(data)
+    local fullHashb64u = cryptoLite.sha256(data)
+    local fullHash = baseutils.from_url64(fullHashb64u)
+    local leftMostHash = string.sub(fullHash, 1, (#fullHash / 2))
+    return baseutils.to_url64(leftMostHash)
+end
+
+--[[
     hasValue
     determine if table has value
 -- ]]
@@ -485,11 +497,13 @@ local function jwksContainsKID(jwksData, kid)
     return false
 end
 
-local function validateIDToken(issuerConfig, opMetadata, id_token)
+local function validateIDToken(issuerConfig, opMetadata, tokenResponse)
     local validationResult = {
         ["valid"] = false,
         ["error"] = "Unknown error"
     }
+
+    local id_token = tokenResponse["id_token"]
 
     -- first decode the id_token and make sure it is structually sound 
     -- we also want to get the signing kid from the header this way
@@ -580,6 +594,103 @@ local function validateIDToken(issuerConfig, opMetadata, id_token)
         validationResult["error"] = jwtValidationResult
         return validationResult
     end
+
+    --
+    -- perform other validation of the id_token claims
+    --
+    local idTokenClaims = jwtValidationResult["jwtClaims"]
+
+    -- is the iss claim present and correct
+    if (not (idTokenClaims["iss"] ~= nil and idTokenClaims["iss"] == issuerConfig["op_issuer_uri"])) then
+        local errStr = "validateIDToken: invalid iss in id_token: " .. logger.dumpAsString(idTokenClaims["iss"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the aud present and either is our client_id, or contains at least one value which matches our client_id
+    if (not(
+        idTokenClaims["aud"] ~= nil and
+        (
+            (type(idTokenClaims["aud"]) == "string" and idTokenClaims["aud"] == issuerConfig["client_id"]) or 
+            (type(idTokenClaims["aud"]) == "table" and hasValue(idTokenClaims["aud"], issuerConfig["client_id"]))
+        )
+    )) then
+        local errStr = "validateIDToken: invalid aud in id_token: " .. logger.dumpAsString(idTokenClaims["aud"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the exp present and in the future (allowing for SKEW)?
+    local now = os.time()
+    local SKEW = 30
+    if (not(idTokenClaims["exp"] ~= nil and (now-SKEW) < idTokenClaims["exp"])) then
+        local errStr = "validateIDToken: invalid exp in id_token: " .. logger.dumpAsString(idTokenClaims["exp"]) .. " now: " .. tostring(now)
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the iat present and in the past (allowing for SKEW)?
+    if (not(idTokenClaims["iat"] ~= nil and idTokenClaims["iat"] < (now+SKEW))) then
+        local errStr = "validateIDToken: invalid iat in id_token: " .. logger.dumpAsString(idTokenClaims["iat"]) .. " now: " .. tostring(now)
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the nonce present and correct?
+    if (not(idTokenClaims["nonce"] ~= nil and idTokenClaims["nonce"] == issuerConfig["nonce"])) then
+        local errStr = "validateIDToken: invalid nonce in id_token: " .. logger.dumpAsString(idTokenClaims["nonce"]) .. " nonce: " .. logger.dumpAsString(issuerConfig["nonce"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- if the s_hash is present, validate it
+    if (idTokenClaims["s_hash"] ~= nil) then
+        local sHash = computeLeftMostHash(issuerConfig["state"])
+        if not(sHash == idTokenClaims["s_hash"]) then
+            local errStr = "validateIDToken: invalid s_hash in id_token: " .. logger.dumpAsString(idTokenClaims["s_hash"]) .. " state: " .. logger.dumpAsString(issuerConfig["state"])
+            logger.debugLog(errStr)
+            validationResult["error"] = errStr
+            return validationResult
+        end
+    end
+
+    -- if the at_hash is present, validate it
+    if (idTokenClaims["at_hash"] ~= nil) then
+        local atHash = computeLeftMostHash(tokenResponse["access_token"])
+        if not(atHash == idTokenClaims["at_hash"]) then
+            local errStr = "validateIDToken: invalid at_hash in id_token: " .. logger.dumpAsString(idTokenClaims["at_hash"]) .. " access_token: " .. logger.dumpAsString(tokenResponse["access_token"])
+            logger.debugLog(errStr)
+            validationResult["error"] = errStr
+            return validationResult
+        end
+    end
+
+    -- if the rt_hash is present, validate it
+    if (idTokenClaims["rt_hash"] ~= nil) then
+        local rtHash = computeLeftMostHash(tokenResponse["refresh_token"])
+        if not(rtHash == idTokenClaims["rt_hash"]) then
+            local errStr = "validateIDToken: invalid rt_hash in id_token: " .. logger.dumpAsString(idTokenClaims["rt_hash"]) .. " refresh_token: " .. logger.dumpAsString(tokenResponse["refresh_token"])
+            logger.debugLog(errStr)
+            validationResult["error"] = errStr
+            return validationResult
+        end
+    end
+
+    --
+    -- There are other claims in the id_token that we might choose to conditionally validate in the future including
+    --
+    -- jti (would be best if we have a global nonce cache before validating that)
+    -- auth_time (meaningful if we add support for max_age in authorization requests)
+    -- azp (meaningful if the aud claim contains more than 1 value)
+    -- amr (authentication method reference - see RFC8176)
+    -- acr (authentication context reference - depends on specific OIDC profiles like OpenBanking)
+    -- sid (session identifier, may be later used in SLO)
+    --
 
     validationResult["valid"] = true
     validationResult["jwtHeader"] = jwtValidationResult["jwtHeader"]
@@ -1002,7 +1113,7 @@ local function processRedirectURL()
     --logger.debugLog("processRedirectURL: tokenResponse: " .. cjson.encode(tokenResponse))
 
     -- now we validate the id_token
-    local idTokenValidationResults = validateIDToken(issuerConfig, opMetadata, tokenResponse["id_token"])
+    local idTokenValidationResults = validateIDToken(issuerConfig, opMetadata, tokenResponse)
 
 
     if not idTokenValidationResults["valid"] then

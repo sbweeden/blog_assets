@@ -75,6 +75,9 @@ local oidcClientConfig = cjson.decode(clientConfigString)
 
 local redisClient = nil
 
+-- Constants used in lifetime calculations (in seconds)
+local SKEW = 30
+local MAX_DPOP_LIFETIME = 120
 
 --[[
     getBaseURL
@@ -397,7 +400,7 @@ local function addNonceToList(lookupKey, nonce)
         local currentNonceList = cjson.decode(currentNonceListStr)
         if not hasValue(currentNonceList, nonce) then
             table.insert(currentNonceList, nonce)
-            redisHelper.setGlobalKey(redisClient, redisLookupKey, cjson.encode(currentNonceList))
+            redisHelper.setGlobalKey(redisClient, redisLookupKey, cjson.encode(currentNonceList), SKEW+MAX_DPOP_LIFETIME)
         end
     else
         logger.debugLog("WARNING: no redis available, so there is no DPoP jti validation performed")
@@ -484,8 +487,6 @@ local function validateDPoPProof(dpopProofJWT, accessToken, cnf)
     end
 
     -- for iat, we have a clock skew of 30 seconds, and a freshness window of 2 minutes
-    local SKEW = 30
-    local MAX_DPOP_LIFETIME = 120
     local now = os.time()
     local iat = jwtClaims["iat"]
     if (not(iat ~= nil and iat <= (now+SKEW) and iat >= (now-SKEW-MAX_DPOP_LIFETIME))) then
