@@ -19,32 +19,32 @@ local function readRedisConfig()
     -- try get the PREFIX from the [redis] stanza
     local configuredPrefix = Control.getConfig("redis", "key-prefix")
     if configuredPrefix ~= nil then
-        logger.debugLog("readRedisConfig updating PREFIX from WebSEAL config to: " .. configuredPrefix)
+        --logger.debugLog("readRedisConfig updating PREFIX from WebSEAL config to: " .. configuredPrefix)
         REDIS_CONFIG["PREFIX"] = configuredPrefix
     end
 
     -- determine default collection name
     local defaultCollectionName = Control.getConfig("redis", "default-collection-name")
     if (defaultCollectionName ~= nil) then
-        logger.debugLog("readRedisConfig default-collection-name is: " .. defaultCollectionName)
+        --logger.debugLog("readRedisConfig default-collection-name is: " .. defaultCollectionName)
         -- lookup the collection to find the server entry's name
         local collectionServer = Control.getConfig("redis-collection:" .. defaultCollectionName, "server")
         if (collectionServer ~= nil) then
-            logger.debugLog("readRedisConfig server of default collection is: " .. collectionServer)
+            --logger.debugLog("readRedisConfig server of default collection is: " .. collectionServer)
             -- lookup the server configuration information
             local hostname = Control.getConfig("redis-server:" .. collectionServer, "server")
             if (hostname ~= nil) then
-                logger.debugLog("readRedisConfig server hostname is: " .. hostname)
+                --logger.debugLog("readRedisConfig server hostname is: " .. hostname)
                 REDIS_CONFIG["HOST"] = hostname
             end
             local portStr = Control.getConfig("redis-server:" .. collectionServer, "port")
             if (portStr ~= nil) then
-                logger.debugLog("readRedisConfig server port is: " .. portStr)
+                --logger.debugLog("readRedisConfig server port is: " .. portStr)
                 REDIS_CONFIG["PORT"] = tonumber(portStr)
             end
             local username = Control.getConfig("redis-server:" .. collectionServer, "username")
             if (username ~= nil) then
-                logger.debugLog("readRedisConfig username is: " .. username)
+                --logger.debugLog("readRedisConfig username is: " .. username)
                 REDIS_CONFIG["USERNAME"] = username
             end
             local password = Control.getConfig("redis-server:" .. collectionServer, "password")
@@ -57,9 +57,13 @@ local function readRedisConfig()
         end
     end
     -- this will dump the password if present, so comment out if you don't want that
-    logger.debugLog("readRedisConfig - using configuration: " .. logger.dumpAsString(REDIS_CONFIG))
+    --logger.debugLog("readRedisConfig - using configuration: " .. logger.dumpAsString(REDIS_CONFIG))
 end
 
+function RedisHelper.isRedisConfigured()
+    local defaultCollectionName = Control.getConfig("redis", "default-collection-name")
+    return (defaultCollectionName ~= nil)
+end
 
 function RedisHelper.getRedisClient()
     readRedisConfig()
@@ -111,6 +115,7 @@ function RedisHelper.deleteSessionsForUser(client, username)
             -- determine the sessionID from the entry
             local sidRegexp = escape_pattern(REDIS_CONFIG["PREFIX"] .. "session-") .. "(.+)"
             local sessionID = string.match(v, sidRegexp)
+            logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
             if (sessionID ~= nil) then
                 -- delete this sessions keys
                 RedisHelper.deleteSessionByID(client, sessionID)
@@ -120,6 +125,34 @@ function RedisHelper.deleteSessionsForUser(client, username)
         -- now delete the user sessions entry
         client:del(getUserSessionsKey(username))
     end
+end
+
+function RedisHelper.deleteSessionIndex(client, sessionIndex)
+    -- locate the reference to the IVIA session keys from the sessionIndex
+    local currentUserSessions = RedisHelper.getSessionsForUser(client, username)
+    if (currentUserSessions ~= nil and #currentUserSessions > 0) then
+        for i,v in ipairs(currentUserSessions) do
+            -- determine the sessionID from the entry
+            local sidRegexp = escape_pattern(REDIS_CONFIG["PREFIX"] .. "session-") .. "(.+)"
+            local sessionID = string.match(v, sidRegexp)
+            logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
+            if (sessionID ~= nil) then
+                -- delete this sessions keys
+                RedisHelper.deleteSessionByID(client, sessionID)
+            end
+        end
+
+        -- now delete the user sessions entry
+        client:del(getUserSessionsKey(username))
+    end
+end
+
+function RedisHelper.getGlobalKey(client, lookupKey)
+    return client:get(lookupKey)
+end
+
+function RedisHelper.setGlobalKey(client, lookupKey, value)
+    client:set(lookupKey, value)
 end
 
 return RedisHelper
