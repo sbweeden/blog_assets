@@ -147,6 +147,10 @@ function RedisHelper.deleteSessionIndex(client, sessionIndex)
     end
 end
 
+function RedisHelper.existsGlobalKey(client, lookupKey)
+    return client:exists(lookupKey)
+end
+
 function RedisHelper.getGlobalKey(client, lookupKey)
     return client:get(lookupKey)
 end

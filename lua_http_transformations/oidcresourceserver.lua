@@ -371,13 +371,8 @@ local function nonceInList(lookupKey, nonce)
         if redisClient == nil then
             redisClient = redisHelper.getRedisClient()
         end
-        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey
-        local currentNonceListStr = redisHelper.getGlobalKey(redisClient, redisLookupKey)
-        if not currentNonceListStr then
-            return false
-        end
-        local currentNonceList = cjson.decode(currentNonceListStr)
-        return hasValue(currentNonceList, nonce)
+        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey .. "_" .. nonce
+        return redisHelper.existsGlobalKey(redisClient, redisLookupKey)
     else
         logger.debugLog("WARNING: no redis available, so there is no DPoP jti validation performed")
     end
@@ -392,16 +387,8 @@ local function addNonceToList(lookupKey, nonce)
         if redisClient == nil then
             redisClient = redisHelper.getRedisClient()
         end
-        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey
-        local currentNonceListStr = redisHelper.getGlobalKey(redisClient, redisLookupKey)
-        if not currentNonceListStr then
-            currentNonceListStr = "[]"
-        end
-        local currentNonceList = cjson.decode(currentNonceListStr)
-        if not hasValue(currentNonceList, nonce) then
-            table.insert(currentNonceList, nonce)
-            redisHelper.setGlobalKey(redisClient, redisLookupKey, cjson.encode(currentNonceList), SKEW+MAX_DPOP_LIFETIME)
-        end
+        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey .. "_" .. nonce
+        redisHelper.setGlobalKey(redisClient, redisLookupKey, "true", SKEW+MAX_DPOP_LIFETIME)
     else
         logger.debugLog("WARNING: no redis available, so there is no DPoP jti validation performed")
     end
