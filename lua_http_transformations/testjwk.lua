@@ -7,7 +7,7 @@
         [http-transformations]
         testjwk = testjwk.lua
 
-        [http-transformations:testjwtutils]
+        [http-transformations:testjwk]
         request-match = request:GET /testjwk *
         =============
 

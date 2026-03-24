@@ -1125,9 +1125,7 @@ local function processRedirectURL()
     -- call the token endpoint
     local tokenEndpoint = opMetadata["token_endpoint"]
 
-	--local req = httpreq.new_from_uri(tokenEndpoint)
-    --local req = httpreq.new_from_uri("https://webhook.site/2eb8fc0d-ee5a-444e-93ed-244dc8765e78")
-    local req = httpreq.new_from_uri("https://myidp.ice.ibmcloud.com/oauth2/token")
+	local req = httpreq.new_from_uri(tokenEndpoint)
 	
 	-- update request HTTP headers
 	-- This includes setting the BA header if necessary, content-type, accept, and the HTTP method
