@@ -48,16 +48,18 @@ local redisHelper = require 'RedisHelper'
 -- Note: You can (and should) make this a HTTP transformation secret in configuration. This might be a Kubernetes secret in container deployment.
 local clientConfigString = [[
 {
-    "default_issuer": "myidp_plain",
+    "default_issuer": "myidp_dpop",
     "issuers": {
         "myidp_dpop": {
             "op_issuer_uri": "https://REDACTED/oauth2",
             "client_id": "REDACTED",
             "client_secret": "REDACTED",
-            "dpop_signing_alg": "RS256",
+            "dpop_signing_alg": "ES256",
             "skipTLSVerify": false,
-            "preferred_client_auth_method": "client_secret_post",
-            "prefer_pushed_authorization_requests": true
+            "preferred_client_auth_method": "private_key_jwt",
+            "prefer_pushed_authorization_requests": true,
+            "jwkPrivateKey": {"alg":"ES256","kty":"EC","crv":"P-256","y":"sPH2ogR_gNDoYzVk6EiEpSM4l3phFYqhtYLTLy9S2C4","d":"pAeYfDXW1lyFul5wwQGcteIA0jdeg6ZoINkxELMZPCY","x":"-SP-kbAdg3AwSjqE4-jYLpY9rBSUvNWnT7fwa67pr4I"},
+            "jwkPublicKey": {"alg":"ES256","x":"-SP-kbAdg3AwSjqE4-jYLpY9rBSUvNWnT7fwa67pr4I","y":"sPH2ogR_gNDoYzVk6EiEpSM4l3phFYqhtYLTLy9S2C4","kty":"EC","crv":"P-256"}
         },
         "myidp_plain": {
             "op_issuer_uri": "https://REDACTED/oidc/endpoint/default",
@@ -118,6 +120,33 @@ local function performOPDiscovery(issuerConfig)
             ["ignoreCache"] = false
         }
     )
+end
+
+--[[
+    buildClientAssertion
+    Used to build a JWT for client authentication
+--]]
+local function buildClientAssertion(issuerConfig, options)
+    local header = {
+        ["alg"] = issuerConfig["jwkPrivateKey"]["alg"],
+        ["kid"] = cryptoLite.generateJWKThumbprint(issuerConfig["jwkPublicKey"])
+    }
+
+    local claims = {
+        ["iss"] = issuerConfig["client_id"],
+        ["sub"] = issuerConfig["client_id"],
+        ["aud"] = options["aud"],
+        ["exp"] = math.floor(os.time() + 120),
+        ["jti"] = baseutils.to_url64(cryptoLite.randomBytes(32))
+    }
+
+    local jwtGenerateOptions = {
+        header = header,
+        claims = claims,
+        algorithm = header.alg,
+        key = cryptoLite.jwkToPEM(issuerConfig["jwkPrivateKey"])
+    }
+    return jwtUtils.generate(jwtGenerateOptions)
 end
 
 local function updateIssuerConfig(issuerConfig, opMetadata)
@@ -229,9 +258,18 @@ local function introspect(issuerConfig, opMetadata, at)
         req.headers:upsert("authorization", "Basic " .. baseutils.to_base64(issuerConfig["client_id"] .. ':' .. issuerConfig["client_secret"]))
     elseif (issuerConfig["client_auth_method"] == "client_secret_post") then
         bodyParams["client_secret"] = issuerConfig["client_secret"]
+    elseif (issuerConfig["client_auth_method"] == "private_key_jwt") then
+        bodyParams["client_id"] = issuerConfig["client_id"]
+        bodyParams["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+        local clientAssertionOptions = {
+            ["aud"] = endpoint
+        }
+        bodyParams["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
     end
-	
-	req.headers:upsert("content-type", "application/x-www-form-urlencoded")
+    -- TODO add other authentication methods
+    logger.debugLog("introspect: bodyParams: " .. cjson.encode(bodyParams))
+
+    req.headers:upsert("content-type", "application/x-www-form-urlencoded")
 	req.headers:upsert("accept", "application/json")
 	req.headers:upsert(":method", "POST")
 	
@@ -308,59 +346,6 @@ local function resourceResponse(introspectResult, accessToken, dpopProof)
 		responseBody["dpop_proof"] = dpopProof 
 	end
 	jsonResponse(responseBody)
-end
-
-local function sha256b64u(str)
-	return baseutils.to_url64(digest.new("sha256"):final(str))
-end
-
---[[
-	Generate the JWK thumbprint of a public key per https://datatracker.ietf.org/doc/html/rfc7638	
---]]
-local function generateJWKThumbprint(jwk)
-	local result = nil
-	if (jwk ~= nil) then
-		local keyOk = true
-		-- items in this table are sorted lexographically on purpose
-		local sortedRequiredKeyParameters = {}
-		local kty = jwk["kty"]
-		if (kty == "RSA") then
-			table.insert(sortedRequiredKeyParameters, "e")
-			table.insert(sortedRequiredKeyParameters, "kty")
-			table.insert(sortedRequiredKeyParameters, "n")
-		elseif (kty == "EC") then
-			table.insert(sortedRequiredKeyParameters, "crv")
-			table.insert(sortedRequiredKeyParameters, "kty")
-			table.insert(sortedRequiredKeyParameters, "x")
-			table.insert(sortedRequiredKeyParameters, "y")
-		else
-			keyOk = false
-			logger.debugLog("generateJWKThumbprint unsupported kty: " .. (kty or "nil"))
-		end
-		
-		local jsonKeyStr = "{"
-		if (keyOk) then			
-			for index,k in ipairs(sortedRequiredKeyParameters) do
-				local kval = jwk[k]
-				if (kval ~= nil) then
-					jsonKeyStr = jsonKeyStr .. '"' .. k .. '":"' .. kval .. '"'
-				else
-					keyOk = false
-				end
-				
-				-- append a comma if there are more elements to come
-				if (index < #sortedRequiredKeyParameters) then
-					jsonKeyStr = jsonKeyStr .. ","
-				end
-			end
-		end
-		
-		if (keyOk) then
-			jsonKeyStr = jsonKeyStr .. "}"			
-			result = sha256b64u(jsonKeyStr)
-		end
-	end
-	return result
 end
 
 local function nonceInList(lookupKey, nonce)
@@ -442,7 +427,7 @@ local function validateDPoPProof(dpopProofJWT, accessToken, cnf)
     end
 
     -- check that the jwk thumbprint matches the provided cnf
-    local jwkThumbprint = generateJWKThumbprint(dpopKey)
+    local jwkThumbprint = cryptoLite.generateJWKThumbprint(dpopKey)
     if (jwkThumbprint == nil) then
         error("validateDPoPProof: unable to generate jwkThumbprint")
     end

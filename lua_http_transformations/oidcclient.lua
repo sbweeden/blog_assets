@@ -28,6 +28,12 @@ local-response-redirect-uri = [login] /oidckickoff?issuer=myidp_plain
 policies:
 
   http_transformations:
+    request:
+      - name: jwks
+        paths:
+          - "/oidcjwks"
+        method: "GET"
+        rule: "@oidcclient.lua"
     preazn:
       - name: oidcclient_kickoff
         paths: 
@@ -58,7 +64,10 @@ policies:
 oidcclient = oidcclient.lua
 
 [http-transformations:oidcclient]
+request-match = request:GET /oidcjwks *
 request-match = preazn:GET /oidckickoff*
+# next is just for testing
+request-match = preazn:GET /sampleresourcerequest *
 request-match = postazn:GET /oidcredirect/*
 request-match = postazn:POST /oidcredirect/*
 ====== END WebSEAL example ==========
@@ -131,16 +140,18 @@ local htmlUtils = require 'HTMLUtils'
 -- Note: You can (and should) make this a HTTP transformation secret in configuration. This might be a Kubernetes secret in container deployment.
 local clientConfigString = [[
 {
-    "default_issuer": "myidp_plain",
+    "default_issuer": "myidp_dpop",
     "issuers": {
         "myidp_dpop": {
             "op_issuer_uri": "https://REDACTED/oauth2",
             "client_id": "REDACTED",
             "client_secret": "REDACTED",
-            "dpop_signing_alg": "RS256",
+            "dpop_signing_alg": "ES256",
             "skipTLSVerify": false,
-            "preferred_client_auth_method": "client_secret_post",
-            "prefer_pushed_authorization_requests": true
+            "preferred_client_auth_method": "private_key_jwt",
+            "prefer_pushed_authorization_requests": true,
+            "jwkPrivateKey": {"alg":"ES256","kty":"EC","crv":"P-256","y":"sPH2ogR_gNDoYzVk6EiEpSM4l3phFYqhtYLTLy9S2C4","d":"pAeYfDXW1lyFul5wwQGcteIA0jdeg6ZoINkxELMZPCY","x":"-SP-kbAdg3AwSjqE4-jYLpY9rBSUvNWnT7fwa67pr4I"},
+            "jwkPublicKey": {"alg":"ES256","x":"-SP-kbAdg3AwSjqE4-jYLpY9rBSUvNWnT7fwa67pr4I","y":"sPH2ogR_gNDoYzVk6EiEpSM4l3phFYqhtYLTLy9S2C4","kty":"EC","crv":"P-256"}
         },
         "myidp_plain": {
             "op_issuer_uri": "https://REDACTED/oidc/endpoint/default",
@@ -330,6 +341,33 @@ local function performOPDiscovery(issuerConfig)
     )
 end
 
+--[[
+    buildClientAssertion
+    Used to build a JWT for client authentication
+--]]
+local function buildClientAssertion(issuerConfig, options)
+    local header = {
+        ["alg"] = issuerConfig["jwkPrivateKey"]["alg"],
+        ["kid"] = cryptoLite.generateJWKThumbprint(issuerConfig["jwkPublicKey"])
+    }
+
+    local claims = {
+        ["iss"] = issuerConfig["client_id"],
+        ["sub"] = issuerConfig["client_id"],
+        ["aud"] = options["aud"],
+        ["exp"] = math.floor(os.time() + 120),
+        ["jti"] = baseutils.to_url64(cryptoLite.randomBytes(32))
+    }
+
+    local jwtGenerateOptions = {
+        header = header,
+        claims = claims,
+        algorithm = header.alg,
+        key = cryptoLite.jwkToPEM(issuerConfig["jwkPrivateKey"])
+    }
+    return jwtUtils.generate(jwtGenerateOptions)
+end
+
 local function updateIssuerConfig(issuerConfig, opMetadata)
     --
     -- determine which client authentication method we will use
@@ -449,8 +487,16 @@ local function parRequest(issuerConfig, opMetadata, paramMap)
     elseif (issuerConfig["client_auth_method"] == "client_secret_post") then
         paramMap["client_id"] = issuerConfig["client_id"]
         paramMap["client_secret"] = issuerConfig["client_secret"]
+    elseif (issuerConfig["client_auth_method"] == "private_key_jwt") then
+        paramMap["client_id"] = issuerConfig["client_id"]
+        paramMap["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+        local clientAssertionOptions = {
+            ["aud"] = opMetadata["pushed_authorization_request_endpoint"]
+        }
+        paramMap["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
     end
     -- TODO add other authentication methods
+    logger.debugLog("parRequest: paramMap: " .. cjson.encode(paramMap))
 
     -- set post body params
     local body = formsModule.getPostBody(paramMap)
@@ -1005,10 +1051,19 @@ local function processRedirectURL()
         ["code"] = responseParams["code"]
     }
 
-    -- if we are using client_secret_post, add the client_secret
+    -- setup client authentication paramaters
     if (issuerConfig["client_auth_method"] == "client_secret_post") then
         paramMap["client_secret"] = issuerConfig["client_secret"]
+    elseif (issuerConfig["client_auth_method"] == "private_key_jwt") then
+        paramMap["client_id"] = issuerConfig["client_id"]
+        paramMap["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+        local clientAssertionOptions = {
+            ["aud"] = opMetadata["token_endpoint"]
+        }
+        paramMap["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
     end
+    -- TODO add support for other authentication methods
+    logger.debugLog("processRedirectURL: paramMap: " .. cjson.encode(paramMap))
 
     -- if we are using PKCE, include the code_verifier
     if (issuerConfig["code_challenge_method"]) then
@@ -1138,7 +1193,6 @@ local function processRedirectURL()
 
     performLogin(loginOptions)
 end
-
 
 --[[
     Use this for demo purposes only. It will generate and display a curl command that can be used to request
@@ -1305,6 +1359,32 @@ local function processSampleResourceRequest()
 	Control.responseGenerated(true)
 end
 
+
+--[[
+    Iterates through all the configured clients and builds a JWKS response
+    for any public keys.
+--]]
+local function processJWKSRequest()
+    local jwks = cjson.decode('{"keys":[]}')
+    for iname, iconfig in pairs(oidcClientConfig["issuers"]) do
+        if iconfig["jwkPublicKey"] then
+            -- encode/decode to create a copy
+            local kentry = cjson.decode(cjson.encode(iconfig["jwkPublicKey"]))
+
+            -- add use and kid fields for publication in jwks
+            kentry["use"] = "sig"
+            kentry["kid"] = cryptoLite.generateJWKThumbprint(iconfig["jwkPublicKey"])
+
+            table.insert(jwks["keys"], kentry)
+        end
+    end
+	HTTPResponse.setStatusCode(200)
+	HTTPResponse.setStatusMsg("OK")
+    HTTPResponse.setHeader("Content-type", "application/json")
+	HTTPResponse.setBody(cjson.encode(jwks))
+	Control.responseGenerated(true)
+end
+
 --[[
         The main entry point
 --]]
@@ -1319,6 +1399,8 @@ elseif (string.find(url, "^/oidcredirect/")) then
     processRedirectURL()
 elseif (string.find(url, "^/sampleresourcerequest")) then
     processSampleResourceRequest()
+elseif (string.find(url, "^/oidcjwks")) then
+    processJWKSRequest()
 else
     -- a misconfiguration
     errorResponseHTML("Unable to determine processing rules for uri: " .. uri .. " and method: " .. method)

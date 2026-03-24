@@ -2519,7 +2519,7 @@ end
 local function pemECPublicToJWK(publicKeyData, curveOID)
     --logger.debugLog("pemECPublicToJWK called with publicKeyData: " .. logger.dumpAsString(publicKeyData) .. " curveOID: " .. logger.dumpAsString(curveOID))
     if not curveOID then
-        error("CryptoListe.pemECPublicToJWK: curve OID is required for EC public key")
+        error("CryptoLite.pemECPublicToJWK: curve OID is required for EC public key")
     end
     
     -- Map OID to JWK curve name
@@ -3172,6 +3172,54 @@ function CryptoLite.PEMtoJWK(pem)
     end
 end
 
+--[[
+	Generate the JWK thumbprint of a public key per https://datatracker.ietf.org/doc/html/rfc7638	
+--]]
+function CryptoLite.generateJWKThumbprint(jwk)
+	local result = nil
+	if (jwk ~= nil) then
+		local keyOk = true
+		-- items in this table are sorted lexographically on purpose
+		local sortedRequiredKeyParameters = {}
+		local kty = jwk["kty"]
+		if (kty == "RSA") then
+			table.insert(sortedRequiredKeyParameters, "e")
+			table.insert(sortedRequiredKeyParameters, "kty")
+			table.insert(sortedRequiredKeyParameters, "n")
+		elseif (kty == "EC") then
+			table.insert(sortedRequiredKeyParameters, "crv")
+			table.insert(sortedRequiredKeyParameters, "kty")
+			table.insert(sortedRequiredKeyParameters, "x")
+			table.insert(sortedRequiredKeyParameters, "y")
+		else
+			keyOk = false
+			logger.debugLog("CryptoLite.generateJWKThumbprint unsupported kty: " .. (kty or "nil"))
+		end
+		
+		local jsonKeyStr = "{"
+		if (keyOk) then			
+			for index,k in ipairs(sortedRequiredKeyParameters) do
+				local kval = jwk[k]
+				if (kval ~= nil) then
+					jsonKeyStr = jsonKeyStr .. '"' .. k .. '":"' .. kval .. '"'
+				else
+					keyOk = false
+				end
+				
+				-- append a comma if there are more elements to come
+				if (index < #sortedRequiredKeyParameters) then
+					jsonKeyStr = jsonKeyStr .. ","
+				end
+			end
+		end
+		
+		if (keyOk) then
+			jsonKeyStr = jsonKeyStr .. "}"			
+			result = CryptoLite.sha256(jsonKeyStr)
+		end
+	end
+	return result
+end
 
 --[[
     ============================================================================
