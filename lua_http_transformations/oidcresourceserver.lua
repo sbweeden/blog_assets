@@ -103,6 +103,18 @@ local function hasValue(t, v)
 end
 
 --[[
+    computeLeftMostHash
+    Returns base64url encoded left-most half of the sha256 hash of the data
+-- ]]
+
+function computeLeftMostHash(data)
+    local fullHashb64u = cryptoLite.sha256(data)
+    local fullHash = baseutils.from_url64(fullHashb64u)
+    local leftMostHash = string.sub(fullHash, 1, (#fullHash / 2))
+    return baseutils.to_url64(leftMostHash)
+end
+
+--[[
     opDiscovery
     Used to retrieve and cache the well-known endpoint of the OP
 --]]
@@ -379,13 +391,14 @@ end
 
 local function nonceInList(lookupKey, nonce)
     -- unfortunately until we have a global key/value cache class provided by IVIA, we cannot do anything here except in the case
-    -- where Redis is available. With redis we can create a global cache key entry, using the lookup key
-    -- of the jwkThumbprint and a timeout as long as a grant is valid
+    -- where Redis is available. With redis we can create a global cache key entry, using a lookup key 
+    -- built from jwkThumbprint and a reduced form of the nonce (we use computeLeftMostHash in case someone creates large nonce values) 
+    -- and set a timeout as long as the DPoP proof JWT is valid
     if redisHelper.isRedisConfigured() then
         if redisClient == nil then
             redisClient = redisHelper.getRedisClient()
         end
-        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey .. "_" .. nonce
+        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey .. "_" .. computeLeftMostHash(nonce)
         return redisHelper.existsGlobalKey(redisClient, redisLookupKey)
     else
         logger.debugLog("WARNING: no redis available, so there is no DPoP jti validation performed")
@@ -395,13 +408,14 @@ end
 
 local function addNonceToList(lookupKey, nonce)
     -- unfortunately until we have a global key/value cache class provided by IVIA, we cannot do anything here except in the case
-    -- where Redis is available. With redis we can create a global cache key entry, using the lookup key
-    -- of the jwkThumbprint and a timeout as long as a grant is valid
+    -- where Redis is available. With redis we can create a global cache key entry, using a lookup key 
+    -- built from jwkThumbprint and a reduced form of the nonce (we use computeLeftMostHash in case someone creates large nonce values) 
+    -- and set a timeout as long as the DPoP proof JWT is valid
     if redisHelper.isRedisConfigured() then
         if redisClient == nil then
             redisClient = redisHelper.getRedisClient()
         end
-        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey .. "_" .. nonce
+        local redisLookupKey = "DPOP_NONCE_LIST_" .. lookupKey .. "_" .. computeLeftMostHash(nonce)
         redisHelper.setGlobalKey(redisClient, redisLookupKey, "true", SKEW+MAX_DPOP_LIFETIME)
     else
         logger.debugLog("WARNING: no redis available, so there is no DPoP jti validation performed")
