@@ -18,11 +18,12 @@ policies:
 
 ====== WebSEAL example ==========
     [http-transformations]
-    oidc-resource-server = OIDCResourceServer.lua
+    oidc-resource-server = oidcresourceserver.lua
 
     [http-transformations:oidc-resource-server]	
 	request-match = preazn:GET /resource.html *
 ====== END WebSEAL example ==========
+
 --]]
 
 local cjson = require 'cjson'
