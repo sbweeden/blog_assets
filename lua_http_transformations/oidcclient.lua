@@ -496,7 +496,6 @@ local function parRequest(issuerConfig, opMetadata, paramMap)
         paramMap["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
     end
     -- TODO add other authentication methods
-    logger.debugLog("parRequest: paramMap: " .. cjson.encode(paramMap))
 
     -- set post body params
     local body = formsModule.getPostBody(paramMap)
@@ -1063,7 +1062,6 @@ local function processRedirectURL()
         paramMap["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
     end
     -- TODO add support for other authentication methods
-    logger.debugLog("processRedirectURL: paramMap: " .. cjson.encode(paramMap))
 
     -- if we are using PKCE, include the code_verifier
     if (issuerConfig["code_challenge_method"]) then

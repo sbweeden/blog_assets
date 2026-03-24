@@ -267,7 +267,6 @@ local function introspect(issuerConfig, opMetadata, at)
         bodyParams["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
     end
     -- TODO add other authentication methods
-    logger.debugLog("introspect: bodyParams: " .. cjson.encode(bodyParams))
 
     req.headers:upsert("content-type", "application/x-www-form-urlencoded")
 	req.headers:upsert("accept", "application/json")
