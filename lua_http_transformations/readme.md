@@ -118,6 +118,7 @@ This section contains a list of the different Lua HTTP utility modules and examp
 | Module | Description |
 |--------|-------------|
 | ber.lua | Copied from https://github.com/Firanel/lua-ber this is used as a utility library in some of my other Lua files and is included here for convenience. |
+| CachedURLRetriever.lua | Used for retrieving and caching the data from a URL such as an OIDC metadata endpoint or JWKS endpoint |
 | CredParser.lua | Encodes and decodes ivcreds PAC headers, using ber.lua as the ASN.1 encoder |
 | CryptoLite.lua | Built predominently on top of luaossl, exposes a range of standard cryptographic capabilities such as key generation, signing/validation and encryption/decryption. |
 | FormsModule.lua | Useful for working with POST requests containing form-encoded parameters. Will also parse query string parameters. |
