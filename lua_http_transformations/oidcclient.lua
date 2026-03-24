@@ -342,14 +342,16 @@ local function performOPDiscovery(issuerConfig)
 end
 
 --[[
-    buildClientAssertion
-    Used to build a JWT for client authentication
+    buildClientAssertionJWT
+    Common function for building client assertion jwt
 --]]
-local function buildClientAssertion(issuerConfig, options)
+local function buildClientAssertionJWT(issuerConfig, options)
     local header = {
-        ["alg"] = issuerConfig["jwkPrivateKey"]["alg"],
-        ["kid"] = cryptoLite.generateJWKThumbprint(issuerConfig["jwkPublicKey"])
+        ["alg"] = options.alg
     }
+    if (options["kid"]) then
+        header["kid"] = options["kid"]
+    end
 
     local claims = {
         ["iss"] = issuerConfig["client_id"],
@@ -362,10 +364,34 @@ local function buildClientAssertion(issuerConfig, options)
     local jwtGenerateOptions = {
         header = header,
         claims = claims,
-        algorithm = header.alg,
-        key = cryptoLite.jwkToPEM(issuerConfig["jwkPrivateKey"])
+        algorithm = options.alg,
+        key = options.key
     }
     return jwtUtils.generate(jwtGenerateOptions)
+end
+
+--[[
+    buildClientAssertionClientSecretJWT
+    Used to build a JWT for client authentication using the client_secret_jwt authentication method
+--]]
+local function buildClientAssertionClientSecretJWT(issuerConfig, options)
+    options.alg = "HS256"
+    options.key = issuerConfig["client_secret"]
+
+    return buildClientAssertionJWT(issuerConfig, options)
+end
+
+
+--[[
+    buildClientAssertionPrivateKeyJWT
+    Used to build a JWT for client authentication using the private_key_jwt authentication method
+--]]
+local function buildClientAssertionPrivateKeyJWT(issuerConfig, options)
+    options.alg = issuerConfig["jwkPrivateKey"]["alg"]
+    options.kid = cryptoLite.generateJWKThumbprint(issuerConfig["jwkPublicKey"])
+    options.key = cryptoLite.jwkToPEM(issuerConfig["jwkPrivateKey"])
+
+    return buildClientAssertionJWT(issuerConfig, options)
 end
 
 local function updateIssuerConfig(issuerConfig, opMetadata)
@@ -487,13 +513,17 @@ local function parRequest(issuerConfig, opMetadata, paramMap)
     elseif (issuerConfig["client_auth_method"] == "client_secret_post") then
         paramMap["client_id"] = issuerConfig["client_id"]
         paramMap["client_secret"] = issuerConfig["client_secret"]
-    elseif (issuerConfig["client_auth_method"] == "private_key_jwt") then
+    elseif (issuerConfig["client_auth_method"] == "client_secret_jwt" or issuerConfig["client_auth_method"] == "private_key_jwt") then
         paramMap["client_id"] = issuerConfig["client_id"]
         paramMap["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
         local clientAssertionOptions = {
             ["aud"] = opMetadata["pushed_authorization_request_endpoint"]
         }
-        paramMap["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
+        if (issuerConfig["client_auth_method"] == "client_secret_jwt") then
+            paramMap["client_assertion"] = buildClientAssertionClientSecretJWT(issuerConfig, clientAssertionOptions)
+        else
+            paramMap["client_assertion"] = buildClientAssertionPrivateKeyJWT(issuerConfig, clientAssertionOptions)
+        end
     end
     -- TODO add other authentication methods
 
@@ -1053,13 +1083,17 @@ local function processRedirectURL()
     -- setup client authentication paramaters
     if (issuerConfig["client_auth_method"] == "client_secret_post") then
         paramMap["client_secret"] = issuerConfig["client_secret"]
-    elseif (issuerConfig["client_auth_method"] == "private_key_jwt") then
+    elseif (issuerConfig["client_auth_method"] == "client_secret_jwt" or issuerConfig["client_auth_method"] == "private_key_jwt") then
         paramMap["client_id"] = issuerConfig["client_id"]
         paramMap["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
         local clientAssertionOptions = {
             ["aud"] = opMetadata["token_endpoint"]
         }
-        paramMap["client_assertion"] = buildClientAssertion(issuerConfig, clientAssertionOptions)
+        if (issuerConfig["client_auth_method"] == "client_secret_jwt") then
+            paramMap["client_assertion"] = buildClientAssertionClientSecretJWT(issuerConfig, clientAssertionOptions)
+        else
+            paramMap["client_assertion"] = buildClientAssertionPrivateKeyJWT(issuerConfig, clientAssertionOptions)
+        end
     end
     -- TODO add support for other authentication methods
 
