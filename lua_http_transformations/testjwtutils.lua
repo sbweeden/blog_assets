@@ -12,28 +12,51 @@
         =============
 
         Then in a browser just https://yourwebseal.com/testjwtutils
+        
+        Returns JSON or HTML output based on Accept header
 --]]
 local logger = require 'LoggingUtils'
 local cryptoLite = require "CryptoLite"
-local jwtUtils = require 'JWTUtils2'
+local jwtUtils = require 'JWTUtils'
 local cjson = require "cjson"
 
 logger.debugLog("testjwtutils")
 
-local rspBody = "<html><body>"
+-- Initialize test results structure
+local testResults = {
+    totalTests = 0,
+    successTests = 0,
+    failedTests = 0,
+    details = {}
+}
 
-local function preBlockWithTitle(title, text)
-    return "<div style='border: 1px solid black; padding: 10px; margin: 10px;'>" .. title .. "<br/><pre>" .. text .. "</pre></div>"
-end
+local testId = 0
 
-local function errorBlockWithTitle(title, text)
-    return "<div style='border: 1px solid red; padding: 10px; margin: 10px;'>" .. title .. "<br/><pre>" .. text .. "</pre></div>"
+-- Helper function to add a test result
+local function addTestResult(title, content, success)
+    testId = testId + 1
+    testResults.totalTests = testResults.totalTests + 1
+    
+    if success then
+        testResults.successTests = testResults.successTests + 1
+    else
+        testResults.failedTests = testResults.failedTests + 1
+    end
+    
+    table.insert(testResults.details, {
+        id = testId,
+        title = title,
+        content = content,
+        success = success
+    })
 end
 
 local function testJWTGenerateValidate(title, jwtGenerateOptions, jwtValidateOptions)
 
     local txt = ""
     local generatedJWT = nil
+    local testSuccess = true
+    
     -- attempt generation if requested
     if (jwtGenerateOptions ~= nil) then
         local success, jwt = pcall(jwtUtils.generate, jwtGenerateOptions)
@@ -42,8 +65,8 @@ local function testJWTGenerateValidate(title, jwtGenerateOptions, jwtValidateOpt
             txt = "JWT: " .. jwt
             generatedJWT = jwt
         else
-            rspBody = rspBody .. errorBlockWithTitle(title, "Failed to generate with error: " .. jwt)
-            return nil
+            addTestResult(title, "Failed to generate with error: " .. jwt, false)
+            return
         end
     end
 
@@ -60,18 +83,22 @@ local function testJWTGenerateValidate(title, jwtGenerateOptions, jwtValidateOpt
             local header = validationResults.jwtHeader
             local claims = validationResults.jwtClaims
             txt = txt .. (#txt > 0 and "" or ("JWT: " .. jwtValidateOptions.jwt)) .. "\nValid: " .. tostring(success) .. "\nHeader: " .. cjson.encode(header) .. "\nClaims: " .. cjson.encode(claims)
+            testSuccess = true
         else
-            rspBody = rspBody .. errorBlockWithTitle(title, txt .. "\nValidation failed: " .. tostring(success) .. "\nError: " .. validationResults)
-            return nil
+            txt = txt .. "\nValidation failed: " .. tostring(success) .. "\nError: " .. validationResults
+            testSuccess = false
         end
     end
-    rspBody = rspBody .. preBlockWithTitle(title, txt)
+    
+    addTestResult(title, txt, testSuccess)
 end
 
 local function testJWTEncryptDecrypt(title, jweGenerateOptions, jweValidateOptions)
 
     local txt = ""
     local generatedJWE = nil
+    local testSuccess = true
+    
     -- attempt generation if requested
     if (jweGenerateOptions ~= nil) then
         local success, jwe = pcall(jwtUtils.generateEncrypted, jweGenerateOptions)
@@ -79,7 +106,7 @@ local function testJWTEncryptDecrypt(title, jweGenerateOptions, jweValidateOptio
             txt = "JWE: " .. jwe
             generatedJWE = jwe
         else
-            rspBody = rspBody .. errorBlockWithTitle(title, "Failed to generate encrypted with error: " .. logger.dumpAsString(jwe))
+            addTestResult(title, "Failed to generate encrypted with error: " .. logger.dumpAsString(jwe), false)
             return
         end
     end
@@ -98,12 +125,14 @@ local function testJWTEncryptDecrypt(title, jweGenerateOptions, jweValidateOptio
             local header = validationResults.jwtHeader
             local claims = validationResults.jwtClaims
             txt = txt .. (#txt > 0 and "" or ("JWE: " .. jweValidateOptions.jwe)) .. "\nValid: " .. tostring(success) .. "\nJWE Header: " .. cjson.encode(jweHeader) .. "\nHeader: " .. cjson.encode(header) .. "\nClaims: " .. cjson.encode(claims)
+            testSuccess = true
         else
-            rspBody = rspBody .. errorBlockWithTitle(title, txt .. "\nValidation failed: " .. tostring(success) .. "\nError: " .. validationResults)
-            return 
+            txt = txt .. "\nValidation failed: " .. tostring(success) .. "\nError: " .. validationResults
+            testSuccess = false
         end
     end
-    rspBody = rspBody .. preBlockWithTitle(title, txt)
+    
+    addTestResult(title, txt, testSuccess)
 end
 
 --
@@ -114,11 +143,11 @@ end
 
 -- RSA 2048 bit key generation
 local rsaPublicKey, rsaPrivateKey = cryptoLite.generateRSAKeyPair(2048)
-rspBody = rspBody .. preBlockWithTitle("RSA Keypair (2048 bits)", rsaPrivateKey .. "\n" .. rsaPublicKey)
+addTestResult("RSA Keypair (2048 bits)", rsaPrivateKey .. "\n" .. rsaPublicKey, true)
 
 -- EC key generation
 local ecPublicKey, ecPrivateKey = cryptoLite.generateECDSAKeyPair("prime256v1")
-rspBody = rspBody .. preBlockWithTitle("ECDSA Keypair (prime256v1)", ecPrivateKey .. "\n" .. ecPublicKey)
+addTestResult("ECDSA Keypair (prime256v1)", ecPrivateKey .. "\n" .. ecPublicKey, true)
 
 -- basic JWT with no signature
 logger.debugLog("Generate/Validate JWT with none")
@@ -197,7 +226,7 @@ if success then
     }
     testJWTGenerateValidate(title, nil, jwtValidateOptions)
 else
-    rspBody = rspBody .. errorBlockWithTitle(title, "Failed to decode JWT: " .. jwt_SecureSessionResponse)
+    addTestResult(title, "Failed to decode JWT: " .. jwt_SecureSessionResponse, false)
 end
 
 -- Encrypted JWT with RSA
@@ -468,10 +497,68 @@ jweValidateOptions.signatureKey = iviaEC512_publicKeyPEM
 testJWTEncryptDecrypt(title, nil, jweValidateOptions)
 
 
-rspBody = rspBody .. "</body></html>"
+-- Check Accept header to determine response format
+local acceptHeader = HTTPRequest.getHeader('accept')
+local returnJSON = false
 
-HTTPResponse.setHeader("content-type", "text/html")
-HTTPResponse.setBody(rspBody)
+if acceptHeader ~= nil and string.find(string.lower(acceptHeader), 'application/json') then
+    returnJSON = true
+end
+
+if returnJSON then
+    -- Generate JSON response
+    local jsonResponse = cjson.encode(testResults)
+    
+    HTTPResponse.setHeader("content-type", "application/json")
+    HTTPResponse.setBody(jsonResponse)
+else
+    -- Generate HTML response
+    local htmlBody = '<html><head><meta charset="utf-8"><style>'
+    htmlBody = htmlBody .. 'body { font-family: Arial, sans-serif; margin: 20px; }'
+    htmlBody = htmlBody .. '.summary { background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px; }'
+    htmlBody = htmlBody .. '.summary h2 { margin-top: 0; }'
+    htmlBody = htmlBody .. '.test-case { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }'
+    htmlBody = htmlBody .. '.test-case.success { border-color: #4CAF50; background-color: #f1f8f4; }'
+    htmlBody = htmlBody .. '.test-case.failure { border-color: #f44336; background-color: #ffebee; color: #c62828; }'
+    htmlBody = htmlBody .. '.test-title { font-weight: bold; font-size: 1.1em; margin-bottom: 10px; }'
+    htmlBody = htmlBody .. '.test-content { white-space: pre-wrap; font-family: monospace; background-color: white; padding: 10px; border-radius: 3px; }'
+    htmlBody = htmlBody .. '.success-badge { color: #4CAF50; font-weight: bold; }'
+    htmlBody = htmlBody .. '.failure-badge { color: #f44336; font-weight: bold; }'
+    htmlBody = htmlBody .. '</style></head><body>'
+    
+    -- Summary section
+    htmlBody = htmlBody .. '<div class="summary">'
+    htmlBody = htmlBody .. '<h2>JWTUtils Test Results Summary</h2>'
+    htmlBody = htmlBody .. '<p><strong>Total Tests:</strong> ' .. testResults.totalTests .. '</p>'
+    htmlBody = htmlBody .. '<p><strong>Successful Tests:</strong> <span class="success-badge">' .. testResults.successTests .. '</span></p>'
+    htmlBody = htmlBody .. '<p><strong>Failed Tests:</strong> <span class="failure-badge">' .. testResults.failedTests .. '</span></p>'
+    htmlBody = htmlBody .. '</div>'
+    
+    -- Test details section
+    htmlBody = htmlBody .. '<h2>Test Details</h2>'
+    
+    for _, test in ipairs(testResults.details) do
+        local cssClass = test.success and "success" or "failure"
+        local badge = test.success and "✓ PASS" or "✗ FAIL"
+        local badgeClass = test.success and "success-badge" or "failure-badge"
+        
+        htmlBody = htmlBody .. '<div class="test-case ' .. cssClass .. '">'
+        htmlBody = htmlBody .. '<div class="test-title">'
+        htmlBody = htmlBody .. '<span class="' .. badgeClass .. '">' .. badge .. '</span> '
+        htmlBody = htmlBody .. 'Test #' .. test.id .. ': ' .. test.title
+        htmlBody = htmlBody .. '</div>'
+        htmlBody = htmlBody .. '<div class="test-content">' .. test.content .. '</div>'
+        htmlBody = htmlBody .. '</div>'
+    end
+    
+    htmlBody = htmlBody .. '</body></html>'
+    
+    HTTPResponse.setHeader("content-type", "text/html")
+    HTTPResponse.setBody(htmlBody)
+end
+
 HTTPResponse.setStatusCode(200)
 HTTPResponse.setStatusMsg("OK")
 Control.responseGenerated(true)
+
+-- Made with Bob
