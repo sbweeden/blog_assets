@@ -14,3 +14,12 @@
 local logger = require 'LoggingUtils'
 logger.debugLog("snoop")
 logger.debugLog(Control.dumpContext())
+-- Session only available in some phases
+if (Control.getStage() ~= "request") then
+    logger.debugLog("Session.getSessionId(): " .. logger.dumpAsString(Session.getSessionId()))
+    logger.debugLog("Session.getUsername(): " .. logger.dumpAsString(Session.getUsername()))
+    logger.debugLog("Session.getSessionAttributeNames(): " .. logger.dumpAsString(Session.getSessionAttributeNames()))
+    for _, v in pairs(Session.getSessionAttributeNames()) do
+        logger.debugLog("Session.getAttribute(" .. logger.dumpAsString(v) .. "): " .. logger.dumpAsString(Session.getSessionAttribute(v)))
+    end
+end

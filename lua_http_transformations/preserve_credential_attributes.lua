@@ -71,7 +71,7 @@ local SESSION_ATTROBJ_NAME = "PRESERVE_SESSION_ATTRIBUTES"
 --
 -- One of "session", "cookie"
 -- The "session" option requires an update to WebSEAL that you may or may not have.
--- If you do not, then an error will be printed to trace. 
+-- If you do not, then an error will be printed to trace.
 --
 local STATE_STORAGE_STRATEGY="cookie"
 
@@ -104,6 +104,28 @@ local VERIFY_STEPUP_USER=(configStr ~= nil and (string.lower(configStr) == "true
 START UTILITY FUNCTIONS
 --]]
 
+--[[
+    isSessionFunctionsAvailable
+    Detects if the fix exists to make the Session.setAttribute  and Session.getAttribute functions available in the postauthn stage
+--]]
+function isSessionFunctionsAvailable()
+    local success, worked = pcall(
+        function()
+            local result = false
+            local currentVal = Session.getSessionAttribute("test")
+            Session.setSessionAttribute("test", "test")
+            result = (Session.getSessionAttribute("test") == "test")
+            if (currentVal ~= nil) then
+                Session.setSessionAttribute("test", currentVal)
+            else
+                Session.removeSessionAttribute("test")
+            end
+            return result
+        end
+    )
+    --logger.debugLog("isSessionFunctionsAvailable: success: " .. tostring(success) .. " worked: " .. tostring(worked))
+    return (success and worked)
+end
 
 local function getCurrentUsername()
     local username = Session.getCredentialAttribute("AZN_CRED_PRINCIPAL_NAME")
@@ -298,7 +320,7 @@ START MAIN ENTRY POINT
 logger.debugLog("preserve_credential_attributes called during stage: " .. Control.getStage())
 if (Control.getStage() == "postauthn") then
     -- detect if WebSEAL has the fix for making the Session available to the postauthn transformation state
-    if (STATE_STORAGE_STRATEGY == "session" and Session.getSessionId() == nil) then
+    if (STATE_STORAGE_STRATEGY == "session" and not isSessionFunctionsAvailable()) then
         logger.debugLog("preserve_credential_attributes: ******** ERROR: The version of WebSEAL you are running needs a fix to make the Session information available to the postauthn Lua transformation stage")
     else
         logger.debugLog("preserve_credential_attributes.AZN_CRED_AUTH_METHOD: " .. Session.getCredentialAttribute("AZN_CRED_AUTH_METHOD"))
