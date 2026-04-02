@@ -47,6 +47,7 @@ local redisHelper = require 'RedisHelper'
 --]]
 
 -- Note: You can (and should) make this a HTTP transformation secret in configuration. This might be a Kubernetes secret in container deployment.
+--local clientConfigString = os.getenv("CLIENT_CONFIG_JSON")
 local clientConfigString = [[
 {
     "default_issuer": "myidp_dpop",

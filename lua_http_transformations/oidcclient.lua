@@ -40,6 +40,16 @@ policies:
           - "/oidckickoff*"
         method: "GET"
         rule: "@oidcclient.lua"
+      - name: oidcclient_slo_post
+        paths: 
+          - "/oidcslo/*"
+        method: "POST"
+        rule: "@oidcclient.lua"
+      - name: oidcclient_slo_get
+        paths: 
+          - "/oidcslo"
+        method: "GET"
+        rule: "@oidcclient.lua"
     - name: OPTIONAL_sampleresourcerequest
         paths: 
           - "/sampleresourcerequest"
@@ -98,6 +108,7 @@ policies:
       paths: 
         - "/oidckickoff*"
         - "/oidcredirect/*"
+        - "/oidcslo/*"
       rule: anyuser
       action: permit
 
@@ -132,12 +143,18 @@ local cachedURLRetriever = require 'CachedURLRetriever'
 local cryptoLite = require 'CryptoLite'
 local jwtUtils = require 'JWTUtils'
 local htmlUtils = require 'HTMLUtils'
+local redisHelper = require 'RedisHelper'
 
 --[[
         Config
 --]]
 
+--logger.debugLog("oidcclient enter")
+
+local redisClient = nil
+
 -- Note: You can (and should) make this a HTTP transformation secret in configuration. This might be a Kubernetes secret in container deployment.
+--local clientConfigString = os.getenv("CLIENT_CONFIG_JSON")
 local clientConfigString = [[
 {
     "default_issuer": "myidp_dpop",
@@ -165,7 +182,17 @@ local clientConfigString = [[
     }
 }
 ]]
+
+
 local oidcClientConfig = cjson.decode(clientConfigString)
+
+local MAX_SESSION_LIFETIME = 3600
+-- now try to read it from config
+local sessionTimeoutStr = Control.getConfig("session", "timeout")
+if sessionTimeoutStr ~= nil then
+    MAX_SESSION_LIFETIME = tonumber(sessionTimeoutStr)
+end
+--logger.debugLog("MAX_SESSION_LIFETIME: " .. logger.dumpAsString(MAX_SESSION_LIFETIME))
 
 
 
@@ -256,9 +283,9 @@ end
 
 --[[
     errorResponseHTML
-    Use for returning a HTML error page to the browser
+    Use for returning a HTML error page to the browser, using statusCode (optional) or defaulting to 400
 --]]
-local function errorResponseHTML(msg)
+local function errorResponseHTML(msg, statusCode)
 	htmlContent = [[
 <html>
 <head>
@@ -313,12 +340,56 @@ local function errorResponseHTML(msg)
 </html>
 ]]
 	
-	logger.debugLog('errorResponse: ' .. msg)
-	HTTPResponse.setStatusCode(403)
+	logger.debugLog('oidcclient.errorResponseHTML: ' .. msg)
+	HTTPResponse.setStatusCode(statusCode or 400)
 	HTTPResponse.setStatusMsg("Bad Request")
 	HTTPResponse.setBody(htmlContent)
 	
 	Control.responseGenerated(true)
+end
+
+--[[
+    errorResponseJSON
+    Use for returning a JSON error to the client
+
+--]]
+local function errorResponseJSON(msg, statusCode)
+
+    local errJSON = {
+        ["error"] = "invalid_request",
+        ["error_description"] = msg
+    }
+
+    logger.debugLog('oidcclient.errorResponseJSON: ' .. cjson.encode(errJSON))
+    HTTPResponse.setStatusCode(statusCode or 400)
+    HTTPResponse.setStatusMsg("Bad Request")
+    HTTPResponse.setHeader("content-type", "application/json")
+    HTTPResponse.setHeader("cache-control", "no-store")
+    HTTPResponse.setBody(cjson.encode(errJSON))
+    Control.responseGenerated(true)
+end
+
+--[[
+    errorResponseSLO
+    Used for the single logout flow. Returns a HTML error
+    for GET requests, and JSON otherwise.
+
+--]]
+local function errorResponseSLO(msg, statusCode)
+    if (HTTPRequest.getMethod() == "GET") then
+        errorResponseHTML(msg, statusCode)
+    else
+        errorResponseJSON(msg, statusCode)
+    end
+end
+
+local function sendRedirect(url)
+    --logger.debugLog('oidcclient.sendRedirect: ' .. logger.dumpAsString(url))
+	HTTPResponse.setStatusCode(302)
+	HTTPResponse.setStatusMsg("Found")
+	HTTPResponse.setHeader("location", url)
+	Control.responseGenerated(true)
+
 end
 
 --[[
@@ -493,6 +564,8 @@ end
     Perform a pushed authorization request and return the request_uri or nil if there is a problem
 --]]
 local function parRequest(issuerConfig, opMetadata, paramMap)
+    local result = nil
+
     -- really import - make sure we do not use the shared cookie store for these requests
     -- see: https://daurnimator.github.io/lua-http/0.3/#http.request.cookie_store
     -- NOTE WELL: defaults to a shared store.
@@ -889,6 +962,74 @@ local function processKickoffURL()
     Control.responseGenerated(true)
 end
 
+--[[
+    setupRedisSLOKeys
+    Establishes a lookup key based on the provided sid which will refer to the
+    user entry key, and the tagvalue_session_index 
+--]]
+local function setupRedisSLOKeys(sid, username, session_index)
+    --logger.debugLog("oidcclient.setupRedisSLOKeys called with username: " .. logger.dumpAsString(username) .. " sid: " .. logger.dumpAsString(sid) .. " session_index: " .. logger.dumpAsString(session_index))
+    local val = {
+        ["username"] = string.lower(username),
+        ["session_index"] = session_index
+    }
+    -- redis must be configured
+    if redisClient == nil then
+        redisClient = redisHelper.getRedisClient()
+    end
+
+    local key = "OIDC_SID_" .. string.lower(sid)
+    redisHelper.setGlobalKey(redisClient, key, cjson.encode(val), MAX_SESSION_LIFETIME)
+end
+
+--[[
+    sloUsingRedis
+
+    Deletes either all sessionf for username (if no sid is provided)
+    or just tries to find and delete the session represented by sid (if sid is provided)
+--]]
+local function sloUsingRedis(username, sid)
+
+    local result = false
+    --logger.debugLog("oidcclient.sloUsingRedis called with username: " .. logger.dumpAsString(username) .. " sid: " .. logger.dumpAsString(sid))
+
+    -- redis must be configured
+    if redisClient == nil then
+        redisClient = redisHelper.getRedisClient()
+    end
+
+    if (sid ~= nil) then
+        local key = "OIDC_SID_" .. string.lower(sid)
+        local sidData = redisHelper.getGlobalKey(redisClient, key)
+        --logger.debugLog("oidcclient.sloUsingRedis attempting session logout. Lookup of key: " .. logger.dumpAsString(key) .. " sidData: " .. logger.dumpAsString(sidData))
+        if (sidData ~= nil) then
+            local sidDataJSON = cjson.decode(sidData)
+            local redisSessionID = redisHelper.findSessionForUserWithMatchingTagValueSessionIndex(redisClient, sidDataJSON["username"], sidDataJSON["session_index"])
+            if redisSessionID then
+                logger.debugLog("oidcclient.sloUsingRedis deleting redis session ID: " .. logger.dumpAsString(redisSessionID))
+                redisHelper.deleteSessionByID(redisClient, redisSessionID)
+                result = true
+            else
+                logger.debugLog("oidcclient.sloUsingRedis unable to locate redis sesson for username: " .. logger.dumpAsString(username) .. " sid: " .. logger.dumpAsString(sid))
+                result = false
+            end
+
+            -- cleanup the sid key as well since we have processed it
+            redisHelper.deleteGlobalKey(redisClient, key)
+        else
+            logger.debugLog("oidcclient.sloUsingRedis no session found for sid: " .. logger.dumpAsString(sid))
+            result = false
+        end
+    else
+        -- sub must be present, so delete all those sessions
+        logger.debugLog("oidcclient.sloUsingRedis deleting all sessions for user: " .. logger.dumpAsString(username))
+        redisHelper.deleteSessionsForUser(redisClient, string.lower(username))
+        result = true
+    end
+
+    return result
+end
+
 
 --[[
     performLogin
@@ -902,9 +1043,11 @@ end
       - adds the DPoP private key if we have one
 --]]
 local function performLogin(options)
+    local issuer = options.issuer
     local tokenResponse = options.tokenResponse
     local idTokenHeader = options.idTokenHeader
     local idTokenClaims = options.idTokenClaims
+    local idToken = options.idToken
     local dpopKeyPair = options.dpopKeyPair
 
     --logger.debugLog("performLogin: logging in as: " .. idTokenClaims["sub"])
@@ -944,6 +1087,16 @@ local function performLogin(options)
             -- stringify the value
             Authentication.setAttribute(k, logger.dumpAsString(v))
         end
+    end
+
+    -- If there is a sid claim in the id token, and Redis is configured then setup SLO support
+    if idTokenClaims["sid"] and redisHelper.isRedisConfigured() then
+        setupRedisSLOKeys(idTokenClaims["sid"], string.lower(idTokenClaims["sub"]), Session.getCredentialAttribute("tagvalue_session_index"))
+
+        -- we also put the issuer and id_token into session attributes for SLO so that it can be used as the id_token_hint paramater in a redirect to
+        -- the OP's SLO endpoint for the given issuer
+        Session.setSessionAttribute("issuer", issuer)
+        Session.setSessionAttribute("id_token", idToken)
     end
 
     -- This is put in the session as its not needed in the credential. In fact we only keep the 
@@ -1211,9 +1364,11 @@ local function processRedirectURL()
     --
     Session.removeSessionAttribute(stateKey)
     local loginOptions = {
+        issuer = issuer,
         tokenResponse = tokenResponse, 
         idTokenHeader = idTokenValidationResults["jwtHeader"], 
-        idTokenClaims = idTokenValidationResults["jwtClaims"]
+        idTokenClaims = idTokenValidationResults["jwtClaims"],
+        idToken = tokenResponse["id_token"]
     }
     -- if we are using DPoP, include the DPoP keypair such that the private key can be added to the credential
     -- or Session attributes for potential later use
@@ -1223,6 +1378,297 @@ local function processRedirectURL()
 
     performLogin(loginOptions)
 end
+
+--[[
+    validateLogoutToken
+    validate a logout token per https://openid.net/specs/openid-connect-backchannel-1_0.html#Validation
+--]]
+local function validateLogoutToken(issuerConfig, opMetadata, logoutToken)
+    local validationResult = {
+        ["valid"] = false,
+        ["error"] = "Unknown error"
+    }
+
+    --logger.debugLog("validateLogoutToken called with logoutToken: " .. logger.dumpAsString(logoutToken))
+
+    -- first decode the id_token and make sure it is structually sound 
+    -- we also want to get the signing kid from the header this way
+    local success, decodeResult = pcall(jwtUtils.decode, logoutToken)
+    if (not success) then
+        logger.debugLog("validateLogoutToken: could not decode logout_token: " .. logger.dumpAsString(decodeResult))
+        validationResult["error"] = decodeResult
+        return validationResult
+    end
+
+    -- Get the JWKS endpoint from the OP metadata and retrieve it.
+    -- We then first check it in a cached manner to see if it contains a kid matching
+    -- that of the id_token. If it does, great, we will use that for signature validation
+    -- If it doesn't, then we will try once to re-retrieve the JWKS endpoint in case the
+    -- kid is new since we last cached it. If it still isn't there, then we give up.
+    local jwksEndpoint = opMetadata["jwks_uri"]
+    local jwksData = cachedURLRetriever.getURL(
+        jwksEndpoint,
+        {
+            ["skipTLSVerify"] = issuerConfig["skipTLSVerify"] or false,
+            ["headers"] ={
+                ["accept"] = "application/json"
+            },
+            ["returnAsJSON"] = true,
+            ["ignoreCache"] = false
+        }
+    )
+    if (not jwksData) then
+        local errStr = "validateLogoutToken: unable to retrieve JWKS from: " .. logger.dumpAsString(jwksEndpoint)
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    if not jwksContainsKID(jwksData, decodeResult["jwtHeader"]["kid"]) then
+        -- try once more without cache, but we will probably timeout the logout at the OP
+        jwksData = cachedURLRetriever.getURL(
+                jwksEndpoint,
+                {
+                    ["skipTLSVerify"] = (issuerConfig["skipTLSVerify"] or false),
+                    ["headers"] ={
+                        ["accept"] = "application/json"
+                    },
+                    ["returnAsJSON"] = true,
+                    ["ignoreCache"] = true
+                }
+            )
+    end
+
+    if not jwksContainsKID(jwksData, decodeResult["jwtHeader"]["kid"]) then
+        local errStr = "validateLogoutToken: could not find jwt kid: " .. logger.dumpAsString(decodeResult["jwtHeader"]["kid"]) .. " in JWKS from: " .. logger.dumpAsString(jwksEndpoint)
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- make sure the algorithm is acceptable to us
+    local allowedAlgs = { "RS256", "ES256", "HS256" }
+    if (not hasValue(allowedAlgs, decodeResult["jwtHeader"]["alg"])) then
+        local errStr = "validateLogoutToken: logout_token has unacceptable alg: " .. logger.dumpAsString(decodeResult["jwtHeader"]["alg"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- make sure the typ is logout+jwt
+    if (not (decodeResult["jwtHeader"]["typ"] == "logout+jwt")) then
+        local errStr = "validateLogoutToken: logout_token has unacceptable typ: " .. logger.dumpAsString(decodeResult["jwtHeader"]["typ"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- try the signature validation now
+    local success, jwtValidationResult = pcall(
+        jwtUtils.validate,
+        {
+            jwt = logoutToken,
+            algorithm = decodeResult["jwtHeader"]["alg"],
+            jwks = jwksData,
+            validateExp = true,
+            clockSkew = 60
+        }
+    )
+
+    if (not success) then
+        logger.debugLog("validateLogoutToken: could not validate logout_token: " .. logger.dumpAsString(jwtValidationResult))
+        validationResult["error"] = jwtValidationResult
+        return validationResult
+    end
+
+    --
+    -- perform other validation of the logout_token claims
+    --
+    local logoutTokenClaims = jwtValidationResult["jwtClaims"]
+
+    -- is the iss claim present and correct
+    if (not (logoutTokenClaims["iss"] ~= nil and logoutTokenClaims["iss"] == issuerConfig["op_issuer_uri"])) then
+        local errStr = "validateLogoutToken: invalid iss in logout_token: " .. logger.dumpAsString(logoutTokenClaims["iss"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the aud present and either is our client_id, or contains at least one value which matches our client_id
+    if (not(
+        logoutTokenClaims["aud"] ~= nil and
+        (
+            (type(logoutTokenClaims["aud"]) == "string" and logoutTokenClaims["aud"] == issuerConfig["client_id"]) or 
+            (type(logoutTokenClaims["aud"]) == "table" and hasValue(logoutTokenClaims["aud"], issuerConfig["client_id"]))
+        )
+    )) then
+        local errStr = "validateLogoutToken: invalid aud in logout_token: " .. logger.dumpAsString(idTokenClaims["aud"])
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the exp present and in the future (allowing for SKEW)?
+    local now = os.time()
+    local SKEW = 30
+    if (not(logoutTokenClaims["exp"] ~= nil and (now-SKEW) < logoutTokenClaims["exp"])) then
+        local errStr = "validateLogoutToken: invalid exp in logout_token: " .. logger.dumpAsString(logoutTokenClaims["exp"]) .. " now: " .. tostring(now)
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is the iat present and in the past (allowing for SKEW)?
+    if (not(logoutTokenClaims["iat"] ~= nil and logoutTokenClaims["iat"] < (now+SKEW))) then
+        local errStr = "validateLogoutToken: invalid iat in logout_token: " .. logger.dumpAsString(logoutTokenClaims["iat"]) .. " now: " .. tostring(now)
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- is at least one of sid or sub present?
+    if (logoutTokenClaims["sid"] == nil and logoutTokenClaims["sub"] == nil) then
+        local errStr = "validateLogoutToken: missing sid or sub in logout_token"
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- verify the events claim
+    if (logoutTokenClaims["events"] == nil or logoutTokenClaims["events"]["http://schemas.openid.net/event/backchannel-logout"] == nil) then
+        local errStr = "validateLogoutToken: missing events entry in logout_token"
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    -- make sure nonce is NOT present
+    if (logoutTokenClaims["nonce"] ~= nil) then
+        local errStr = "validateLogoutToken: invalid claim in logout_token: nonce"
+        logger.debugLog(errStr)
+        validationResult["error"] = errStr
+        return validationResult
+    end
+
+    --
+    -- There are other claims in the logout_token that we might choose to conditionally validate in the future including
+    --
+    -- jti (would be best if we have a global nonce cache before validating that)
+    --
+
+    validationResult["valid"] = true
+    validationResult["jwtHeader"] = jwtValidationResult["jwtHeader"]
+    validationResult["jwtClaims"] = jwtValidationResult["jwtClaims"]
+
+    return validationResult
+end
+
+--[[
+    processSingleLogout
+    Used to process an SLO request in the OIDC single logout flow
+--]]
+local function processSingleLogout()
+    -- for GET requests we try get the issuer from session attribute as this is a kickoff
+    -- for POST requests, we try get from the URL
+    local issuer = nil
+    
+    if (HTTPRequest.getMethod() == "GET") then
+        issuer = Session.getSessionAttribute("issuer")
+    elseif (HTTPRequest.getMethod() == "POST") then
+        local _,_,issuerStr = string.find(HTTPRequest.getURL(), "/oidcslo/(.+)")
+        issuer = issuerStr
+    end
+
+    -- we better have issuer now
+    if (not issuer or not(oidcClientConfig["issuers"][issuer])) then
+        errorResponseSLO("Unable to determine issuer config")
+        return
+    end
+
+    local issuerConfig = nil
+    if (oidcClientConfig["issuers"][issuer]) then
+        -- this encode/decode is to ensure we get a new copy and don't a singleton config value
+        issuerConfig = cjson.decode(cjson.encode(oidcClientConfig["issuers"][issuer]))
+    end
+
+    if (not issuerConfig) then
+        errorResponseSLO("Unable to determine issuer config")
+        return
+    end
+
+    -- remember the issuer as part of this object
+    issuerConfig["issuer"] = issuer
+
+    -- get the OP metadata
+    local opMetadata = performOPDiscovery(issuerConfig)
+    if (not opMetadata) then
+        errorResponseSLO("Unable to retrieve OP metadata")
+        return
+    end
+    --logger.debugLog("processSingleLogout: opMetadata: " .. cjson.encode(opMetadata))
+
+    -- if backchannel logout is not supported by the OP, exit now
+    if (not(opMetadata["backchannel_logout_supported"] or opMetadata["backchannel_logout_session_supported"])) then
+        errorResponseSLO("Backchannel logout is not supported by the OP")
+        return
+    end
+
+    -- if we cannot find the end_session_endpoint that is an error too
+    if (not opMetadata["end_session_endpoint"]) then
+        errorResponseSLO("Logout endpoint not found in OP metadata")
+        return
+    end
+
+    -- for GET this is an SLO kickoff so we redirect to the OP's SLO endpoint with the id_token_hint
+    if (HTTPRequest.getMethod() == "GET") then
+        -- kickoff SLO
+        local idToken = Session.getSessionAttribute("id_token")
+        if not idToken then
+            errorResponseSLO("processSingleLogout: Unable to retrieve id_token from session")
+            return
+        end
+        
+        local redirectURL = opMetadata["end_session_endpoint"] .. "?id_token_hint=" .. idToken
+        sendRedirect(redirectURL)
+        return        
+    elseif (HTTPRequest.getMethod() == "POST") then
+        local requestParams = formsModule.getPostParams(HTTPRequest.getBody())
+
+        local logout_token = requestParams["logout_token"]
+        if not logout_token then
+            errorResponseSLO("Unable to retrieve logout_token")
+            return
+        end
+
+        -- need to validate the logout token, similar to validating an id_token
+        local logoutTokenValidationResults = validateLogoutToken(issuerConfig, opMetadata, logout_token)
+
+        if not logoutTokenValidationResults["valid"] then
+            errorResponseSLO("Invalid logout_token: " .. logoutTokenValidationResults["error"])
+            return
+        end
+
+        -- if we get this far, then we just call the redis helper to delete either all 
+        -- sessions for the user, or if a sid is provided, just that session
+        local logoutTokenClaims = logoutTokenValidationResults["jwtClaims"]
+        local logoutResult = sloUsingRedis(logoutTokenClaims["sub"], logoutTokenClaims["sid"])
+        if not logoutResult then
+            errorResponseSLO("Could not find session to logout")
+            return
+        end
+
+        -- done - just return a 200 response
+        HTTPResponse.setStatusCode(200)
+        HTTPResponse.setStatusMsg("OK")
+        HTTPResponse.setHeader("content-type", "application/json")
+        HTTPResponse.setBody('{"status":"ok"}')
+        Control.responseGenerated(true)
+    else
+        errorResponseSLO("Invalid HTTP method")
+        return
+    end
+end
+
 
 --[[
     Use this for demo purposes only. It will generate and display a curl command that can be used to request
@@ -1427,11 +1873,13 @@ if (string.find(url, "^/oidckickoff")) then
     processKickoffURL()
 elseif (string.find(url, "^/oidcredirect/")) then
     processRedirectURL()
+elseif (string.find(url, "^/oidcslo")) then
+    processSingleLogout()
 elseif (string.find(url, "^/sampleresourcerequest")) then
     processSampleResourceRequest()
 elseif (string.find(url, "^/oidcjwks")) then
     processJWKSRequest()
 else
     -- a misconfiguration
-    errorResponseHTML("Unable to determine processing rules for uri: " .. uri .. " and method: " .. method)
+    errorResponseHTML("Unable to determine processing rules for url: " .. url .. " and method: " .. method)
 end

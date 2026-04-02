@@ -96,9 +96,9 @@ function RedisHelper.deleteSessionByID(client, sessionID)
     local sessionHashEntryName = REDIS_CONFIG["PREFIX"] .. "session-" .. sessionID
     local clientsSetName = REDIS_CONFIG["PREFIX"] .. "client-" .. sessionHashEntryName
 
-    logger.debugLog("Deleting session hash entry: " .. sessionHashEntryName)
+    --logger.debugLog("Deleting session hash entry: " .. sessionHashEntryName)
     client:del(sessionHashEntryName)
-    logger.debugLog("Deleting clients set: " .. clientsSetName)
+    --logger.debugLog("Deleting clients set: " .. clientsSetName)
     client:del(clientsSetName)
 end
 
@@ -115,7 +115,7 @@ function RedisHelper.deleteSessionsForUser(client, username)
             -- determine the sessionID from the entry
             local sidRegexp = escape_pattern(REDIS_CONFIG["PREFIX"] .. "session-") .. "(.+)"
             local sessionID = string.match(v, sidRegexp)
-            logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
+            --logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
             if (sessionID ~= nil) then
                 -- delete this sessions keys
                 RedisHelper.deleteSessionByID(client, sessionID)
@@ -127,6 +127,27 @@ function RedisHelper.deleteSessionsForUser(client, username)
     end
 end
 
+function RedisHelper.findSessionForUserWithMatchingTagValueSessionIndex(client, username, tagvalueSessionIndex)
+    -- iterate over all the sessions for the user, trying to find one that has a hash vale called sms.session-idex matching tagvalueSessionIndex
+    local currentUserSessions = RedisHelper.getSessionsForUser(client, username)
+    if (currentUserSessions ~= nil and #currentUserSessions > 0) then
+        for i,v in ipairs(currentUserSessions) do
+            -- determine the sessionID from the entry
+            local sidRegexp = escape_pattern(REDIS_CONFIG["PREFIX"] .. "session-") .. "(.+)"
+            local sessionID = string.match(v, sidRegexp)
+            --logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
+
+            -- check if this one has a sms.session-index matching tagvalueSessionIndex
+            local sessionIndexValue = client:hget(v, "sms.session-index")
+            if (sessionIndexValue == tagvalueSessionIndex) then
+                return sessionID
+            end
+        end
+    end
+    -- did not find one
+    return nil
+end
+
 function RedisHelper.deleteSessionIndex(client, sessionIndex)
     -- locate the reference to the IVIA session keys from the sessionIndex
     local currentUserSessions = RedisHelper.getSessionsForUser(client, username)
@@ -135,7 +156,7 @@ function RedisHelper.deleteSessionIndex(client, sessionIndex)
             -- determine the sessionID from the entry
             local sidRegexp = escape_pattern(REDIS_CONFIG["PREFIX"] .. "session-") .. "(.+)"
             local sessionID = string.match(v, sidRegexp)
-            logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
+            --logger.debugLog("RedisHelper.deleteSessionsForUser sidRegexp= " .. sidRegexp .. "v=" .. v .. " sessionID: " .. (sessionID or 'nil'))
             if (sessionID ~= nil) then
                 -- delete this sessions keys
                 RedisHelper.deleteSessionByID(client, sessionID)
@@ -153,6 +174,10 @@ end
 
 function RedisHelper.getGlobalKey(client, lookupKey)
     return client:get(lookupKey)
+end
+
+function RedisHelper.deleteGlobalKey(client, lookupKey)
+    return client:del(lookupKey)
 end
 
 function RedisHelper.setGlobalKey(client, lookupKey, value, ttlSeconds)
