@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "dotenv": "^16.5.0",
-    "jsrsasign": "^11.1.0",
+    "jsrsasign": "^11.1.1",
     "uuid": "^11.1.0"
   }
 }
